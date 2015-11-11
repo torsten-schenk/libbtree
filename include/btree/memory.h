@@ -1,0 +1,248 @@
+#ifndef _BTREE_MEMORY_H
+#define _BTREE_MEMORY_H
+
+#include <stdbool.h>
+
+#include <btree/common.h>
+
+/* TODO all methods: return -1/NULL and use errno in case of error */
+
+typedef struct btree btree_t;
+typedef struct btree_node btree_node_t;
+
+/*
+ * best practices when using keys (i.e. a compare function is given):
+ * - make the values stored a struct:
+ *     struct my_element {
+ *       struct my_key;
+ *       ... other members
+ *     }
+ * - implement the compare function as follows:
+ *     int cmp(const void *a_, const void *b_) {
+ *       const struct my_key *a = a_;
+ *       const struct my_key *b = b_;
+ *       ... compare a and b
+ *     }
+ * - this allows to hand over just a key struct to the lookup/modify/delete functions.
+ * - additionally, if the key is an n-tuple (n > 1), arrange the members in my_key in
+ *   descending significance. this allows the group functions to specify a compare function
+ *   which only compares the most k (k <= n) significant members and therefore grouping together
+ *   multiple elements
+ * NOTE (as a conclusion): every argument named 'key' must be of a type which the corresponding
+ * compare function can handle. the btree functions won't access any data on the pointer so
+ * they do not need to be aware of the size. every argument named 'element' needs to contain
+ * the whole structure, i.e. one of size 'element_size' as specified in 'btree_new'.
+ */
+
+
+/* may be copied; remains valid until next remove/insert operation */
+typedef struct {
+	void *element;
+	int index;
+
+	/* private */
+	btree_t *tree;
+	btree_node_t *node;
+	int pos;
+} btree_it_t;
+
+/* sets errno in case NULL is returned;
+ * creates a btree that stores values, so 'a' and 'b'
+ * of cmp callback will point to the values within
+ * the btree.
+ * if element_size is set to -1, the btree
+ * will store pointers instead of values.
+ * this implies that pointers returned by lookup functions won't change
+ * due to a delete or insert function.
+ * it also implies that the pointer handed over to the insert function
+ * must remain valid until the element is removed from the btree. */
+btree_t *btree_new(
+		int order,
+		int element_size,
+		int (*cmp)(const void *a, const void *b), /* if NULL, indices are used instead of keys */
+		int (*acquire)(void *a),
+		void (*release)(void *a),
+		int options);
+
+btree_t *btree_new2(
+		int order,
+		int element_size,
+		int (*cmp)(const void *a, const void *b, void *data), /* if NULL, indices are used instead of keys */
+		int (*acquire)(void *a, void *data),
+		void (*release)(void *a, void *data),
+		int options,
+		void *data);
+
+void btree_clear(
+		btree_t *self);
+
+void btree_destroy(
+		btree_t *self);
+
+/*int btree_index_of(
+		btree_t *self,
+		const void *element);*/
+
+bool btree_contains(
+		btree_t *self,
+		const void *key);
+
+int btree_sethook_release(
+		btree_t *self,
+		void (*release)(void *a));
+
+int btree_sethook_release2(
+		btree_t *self,
+		void (*release)(void *a, void *data));
+
+/* find lower bound using custom compare function.
+ * NOTE: the custom compare function may group together
+ * multiple elements BUT foreach group g1 and g2
+ * it must hold: g1 < g2 <=> all elements within g1 < all elements within g2 */
+/*btree_group_lower(
+		btree_t *self,
+		const void *key,
+		int (*cmp)(const void *a, const void *b));*/
+/*btree_group_upper(
+		btree_t *self,
+		const void *key,
+		int (*cmp)(const void *a, const void *b));*/
+
+/* insert a new element. copies the given element data into the new slot. */
+int btree_insert(
+		btree_t *self,
+		void *element);
+
+int btree_insert_at(
+		btree_t *self,
+		int index,
+		void *element);
+
+/* insert/replace an element. same as btree_insert but replaces existing elements
+ * in case of MULTI_KEY: if no element exists, a new one is inserted.
+ * if at least one element already exists, the FIRST one will be replaced */
+int btree_put(
+		btree_t *self,
+		void *element);
+
+int btree_put_at(
+		btree_t *self,
+		int index,
+		void *element);
+
+/* removes an element from the tree.
+ * in case of MULTI_KEY: remove just the FIRST one, even if multiple elements exist */
+int btree_remove(
+		btree_t *self,
+		void *element);
+
+int btree_remove_at(
+		btree_t *self,
+		int index);
+
+int btree_size(
+		btree_t *self);
+
+/* removes all occurences of an element from the tree.
+ * returns number of elements removed */
+/*int btree_remove_all(
+		btree_t *self,
+		void *element);*/
+
+/* NOTE: the returned pointer is only guaranteed to be valid until
+ * any of insert/delete functions have been called EXCEPT when btree_new_ptr was
+ * used to create the btree.x
+ * in case of MULTI_KEY: if multiple elements exist, the
+ * FIRST one is returned (i.e. get() and put() operate on the same element) */
+void *btree_get(
+		btree_t *self,
+		const void *key);
+
+void *btree_get_at(
+		btree_t *self,
+		int index);
+
+/* insert a new element. reserve a new slot at a position being fit for 'key'
+ * BUT do not copy any data. The caller is responsible for filling the key
+ * appropriately.
+ * NOTE: the returned pointer is only guaranteed to be valid until
+ * any of insert/delete functions have been called EXCEPT when btree_new_ptr was
+ * used to create the btree.
+ * sets errno in case NULL is returned */
+/*void *btree_insert_key(
+		btree_t *self,
+		const void *key);*/
+
+/* find functions return index or -ENOENT in case nothing was found.
+ * 'it' may be NULL */
+int btree_find_at(
+		btree_t *self,
+		int index,
+		btree_it_t *it);
+
+/* set iterator to first element in btree. if btree is empty, btree_find_end() is returned.
+ * returns the index (always 0) */
+int btree_find_begin(
+		btree_t *self,
+		btree_it_t *it);
+
+/* set iterator to first imaginary element after last element. the returned index
+ * also equals the number of elements in the btree. */
+int btree_find_end(
+		btree_t *self,
+		btree_it_t *it);
+
+/* return: iterator points to the first element being >= key and returns index.
+ * if all elements are < key, btree_size() is returned. */
+int btree_find_lower(
+		btree_t *self,
+		const void *key,
+		btree_it_t *it);
+
+int btree_find_upper(
+		btree_t *self,
+		const void *key,
+		btree_it_t *it);
+
+/* returns the first element a in tree for which holds a >= key using given cmp function */
+int btree_find_lower_set(
+		btree_t *self,
+		const void *key,
+		int (*cmp)(const void *a, const void *b),
+		btree_it_t *it);
+
+int btree_find_lower_set2(
+		btree_t *self,
+		const void *key,
+		int (*cmp)(const void *a, const void *b, void *data, void *cmpdata), /* data: pointer handed over by btree_new2 OR NULL if tree was created with btree_new */
+		void *cmpdata,
+		btree_it_t *it);
+
+/* returns the last element a in tree for which holds a <= key using given cmp function */
+int btree_find_upper_set(
+		btree_t *self,
+		const void *key,
+		int (*cmp)(const void *a, const void *b),
+		btree_it_t *it);
+
+int btree_find_upper_set2(
+		btree_t *self,
+		const void *key,
+		int (*cmp)(const void *a, const void *b, void *data, void *cmpdata),
+		void *cmpdata,
+		btree_it_t *it);
+
+/* return -ENOENT when trying to process btree_find_end(). */
+int btree_iterate_next(
+		btree_it_t *it);
+
+/* return -ENOENT when trying to process btree_find_begin(). */
+int btree_iterate_prev(
+		btree_it_t *it);
+
+void btree_dump(
+		btree_t *self,
+		void (*print)(const void *element));
+
+#endif
+
