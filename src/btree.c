@@ -37,25 +37,6 @@ enum {
 #define CMP_EP(TREE, A, B) \
 	((TREE->options & OPT_USE_DATA) ? TREE->cb.data.cmp(GET_E(TREE, A), B, TREE->data) : TREE->cb.nodata.cmp(GET_E(TREE, A), B))
 
-#define ACQUIRE_E(TREE, E) \
-	do { \
-		int ret = 0; \
-		if(!(TREE->options & OPT_USE_DATA) && TREE->cb.data.acquire != NULL) \
-			ret = TREE->cb.nodata.acquire(GET_E(TREE, E)); \
-		else if((TREE->options & OPT_USE_DATA) && TREE->cb.nodata.acquire != NULL) \
-			ret = TREE->cb.data.acquire(GET_E(TREE, E), TREE->data); \
-		if(ret != 0) \
-			return ret; \
-	} while(false)
-
-#define RELEASE_E(TREE, E) \
-	do { \
-		if(!(TREE->options & OPT_USE_DATA) && TREE->cb.data.release != NULL) \
-			TREE->cb.nodata.release(GET_E(TREE, E)); \
-		else if((TREE->options & OPT_USE_DATA) && TREE->cb.nodata.release != NULL) \
-			TREE->cb.data.release(GET_E(TREE, E), TREE->data); \
-	} while(false)
-
 #define FIND_LOWER_IMPL(CMP) \
 	int u; \
 	int l; \
@@ -182,19 +163,14 @@ struct btree {
 	int order;
 	int element_size;
 	int options;
-	union {
-		struct {
-			int (*cmp)(const void *a, const void *b);
-			int (*acquire)(void *a);
-			void (*release)(void *a);
-		} nodata;
-		struct {
-			int (*cmp)(const void *a, const void *b, void *data);
-			int (*acquire)(void *a, void *data);
-			void (*release)(void *a, void *data);
-		} data;
-	} cb;
+
+	int (*hook_size)(btree_t *btree, const void *element); /* return size of a single element. if NULL, size is 1 */
+	void *(*hook_sub)(btree_t *btree, void *element, int index); /* return sub element. note: 0 <= index < hook_size(element) */
+	int (*hook_cmp)(btree_t *btree, const void *a, const void *b, void *group); /* compare function. 'data': only used by '_group' methods which specify an additional data argument */
+	int (*hook_acquire)(btree_t *btree, void *a);
+	void (*hook_release)(btree_t *btree, void *a);
 	void *data;
+	void *group_default;
 
 	btree_node_t *root;
 	btree_node_t *overflow_node;
@@ -699,12 +675,13 @@ static int node_insert(
 		tree->overflow_link.offset = node->fill + 1;
 	else
 		node->links[node->fill].offset = node->fill;
- 
+
 	update_count(node, 1);
 	ret = adjust(tree, node);
 	if(ret != 0)
 		return ret;
-	ACQUIRE_E(tree, element);
+	if(tree->hook_acquire != NULL)
+		tree->hook_acquire(tree, element);
 	return 0;
 }
 
@@ -714,9 +691,11 @@ static int node_replace(
 		int pos,
 		void *element)
 {
-	RELEASE_E(tree, node->elements + pos * tree->element_size);
+	if(tree->hook_release != NULL)
+		tree->hook_release(tree, node->elements + pos * tree->element_size);
 	SET_EP(tree, node->elements + pos * tree->element_size, element);
-	ACQUIRE_E(tree, element);
+	if(tree->hook_acquire != NULL)
+		tree->hook_acquire(tree, element);
 	return 0;
 }
 
@@ -727,7 +706,8 @@ static int node_remove(
 {
 	btree_node_t *cur;
 
-	RELEASE_E(tree, node->elements + pos * tree->element_size);
+	if(tree->hook_release != NULL)
+		tree->hook_release(tree, node->elements + pos * tree->element_size);
 	if(isleaf(node)) { /* node where the element is contained within is a leaf, simply remove it */
 		node->fill--;
 		memmove(node->elements + pos * tree->element_size, node->elements + (pos + 1) * tree->element_size, (node->fill - pos) * tree->element_size);
@@ -795,60 +775,97 @@ static bool find_lower(
 		btree_t *tree,
 		const void *key,
 		btree_node_t **node,
-		int *pos)
+		int *pos,
+		void *group)
 {
-	FIND_LOWER_IMPL(CMP_EP(tree, cur->elements + m * tree->element_size, key))
-}
+	int u;
+	int l;
+	int m;
+	int cmp;
+	btree_node_t *node_candidate = NULL;
+	int pos_candidate = 0;
+	bool found = false;
+	btree_node_t *cur = tree->root;
+	btree_node_t *prev = NULL;
 
-static bool find_lower_custom(
-		btree_t *tree,
-		const void *key,
-		int (*cmpfn)(const void *a, const void *b),
-		btree_node_t **node,
-		int *pos)
-{
-	FIND_LOWER_IMPL(cmpfn(GET_E(tree, cur->elements + m * tree->element_size), key))
-}
+	while(cur != NULL) {
+		u = cur->fill - 1;
+		l = 0;
+		prev = cur;
+		while(l <= u) {
+			m = l + (u - l) / 2;
+			cmp = tree->hook_cmp(tree, GET_E(tree, cur->elements + m * tree->element_size), key, group);
+			if(cmp >= 0) {
+				node_candidate = cur;
+				pos_candidate = m;
+				u = m - 1;
+				if(cmp == 0)
+					found = true;
+			}
+			else
+				l = m + 1;
+		}
+		cur = cur->links[l].child;
+	}
 
-static bool find_lower_custom2(
-		btree_t *tree,
-		const void *key,
-		int (*cmpfn)(const void *a, const void *b, void *data, void *cmpdata),
-		void *cmpdata,
-		btree_node_t **node,
-		int *pos)
-{
-	FIND_LOWER_IMPL(cmpfn(GET_E(tree, cur->elements + m * tree->element_size), key, tree->data, cmpdata))
+	if(node_candidate == NULL && prev != NULL) { /* all element keys less than requested key, select imaginary element after end (rightmost leaf node) */
+		node_candidate = prev;
+		pos_candidate = prev->fill;
+	}
+	if(node != NULL)
+		*node = node_candidate;
+	if(pos != NULL)
+		*pos = pos_candidate;
+	return found;
 }
 
 static bool find_upper(
 		btree_t *tree,
 		const void *key,
 		btree_node_t **node,
-		int *pos)
+		int *pos,
+		void *group)
 {
-	FIND_UPPER_IMPL(CMP_EP(tree, cur->elements + m * tree->element_size, key))
-}
+	int u;
+	int l;
+	int m;
+	int cmp;
+	btree_node_t *node_candidate = NULL;
+	int pos_candidate = 0;
+	bool found = false;
+	btree_node_t *cur = tree->root;
+	btree_node_t *prev = NULL;
 
-static bool find_upper_custom(
-		btree_t *tree,
-		const void *key,
-		int (*cmpfn)(const void *a, const void *b),
-		btree_node_t **node,
-		int *pos)
-{
-	FIND_UPPER_IMPL(cmpfn(GET_E(tree, cur->elements + m * tree->element_size), key))
-}
+	while(cur != NULL) {
+		u = cur->fill - 1;
+		l = 0;
+		prev = cur;
+		while(l <= u) {
+			m = l + (u - l) / 2;
+			cmp = tree->hook_cmp(tree, GET_E(tree, cur->elements + m * tree->element_size), key, group);
+			if(cmp > 0) {
+				node_candidate = cur;
+				pos_candidate = m;
+				u = m - 1;
+			}
+			else {
+				if(cmp == 0)
+					found = true;
+				l = m + 1;
+			}
+		}
+		cur = cur->links[l].child;
+	}
 
-static bool find_upper_custom2(
-		btree_t *tree,
-		const void *key,
-		int (*cmpfn)(const void *a, const void *b, void *data, void *cmpdata),
-		void *cmpdata,
-		btree_node_t **node,
-		int *pos)
-{
-	FIND_UPPER_IMPL(cmpfn(GET_E(tree, cur->elements + m * tree->element_size), key, tree->data, cmpdata))
+	if(node_candidate == NULL && prev != NULL) { /* all element keys less than requested key, select imaginary element after end (rightmost leaf node) */
+		node_candidate = prev;
+		pos_candidate = prev->fill;
+	}
+	if(node != NULL)
+		*node = node_candidate;
+	if(pos != NULL)
+		*pos = pos_candidate;
+	return found;
 }
 
 /* returns whether the given index has been found. if false:
@@ -983,20 +1000,11 @@ static bool to_prev(
 btree_t *btree_new(
 		int order,
 		int element_size,
-		int (*cmp)(const void *a, const void *b), /* if NULL, positions are used instead of keys */
-		int (*acquire)(void *a),
-		void (*release)(void *a),
+		int (*cmp)(btree_t *btree, const void *a, const void *b, void *group),
 		int options)
 {
 	btree_t *self;
 
-	switch(options & BTREE_OPT_MASK_TYPE) {
-		case BTREE_OPT_STANDARD:
-			break;
-		default:
-			errno = EINVAL;
-			return NULL;
-	}
 	if(order < 3) {
 		errno = EINVAL;
 		return NULL;
@@ -1017,9 +1025,7 @@ btree_t *btree_new(
 
 	self->options = options;
 	self->order = order;
-	self->cb.nodata.cmp = cmp;
-	self->cb.nodata.acquire = acquire;
-	self->cb.nodata.release = release;
+	self->hook_cmp = cmp;
 	if(element_size < 0) {
 		self->element_size = sizeof(void*);
 		self->options |= OPT_USE_POINTERS;
@@ -1032,79 +1038,42 @@ btree_t *btree_new(
 	return self;
 }
 
-btree_t *btree_new2(
-		int order,
-		int element_size,
-		int (*cmp)(const void *a, const void *b, void *data), /* if NULL, indices are used instead of keys */
-		int (*acquire)(void *a, void *data),
-		void (*release)(void *a, void *data),
-		int options,
+void btree_set_data(
+		btree_t *self,
 		void *data)
 {
-	btree_t *self;
-
-	switch(options & BTREE_OPT_MASK_TYPE) {
-		case BTREE_OPT_STANDARD:
-			break;
-		default:
-			errno = EINVAL;
-			return NULL;
-	}
-	if(order < 3) {
-		errno = EINVAL;
-		return NULL;
-	}
-	else if((options & BTREE_OPT_RESERVED) != 0) {
-		errno = EINVAL;
-		return NULL;
-	}
-
-	if(element_size < 0)
-		self = alloc_tree(sizeof(void*));
-	else
-		self = alloc_tree(element_size);
-	if(self == NULL) {
-		errno = ENOMEM;
-		return NULL;
-	}
-
-	self->options = options;
-	self->order = order;
-	self->cb.data.cmp = cmp;
-	self->cb.data.acquire = acquire;
-	self->cb.data.release = release;
 	self->data = data;
-	self->options |= OPT_USE_DATA;
-	if(element_size < 0) {
-		self->element_size = sizeof(void*);
-		self->options |= OPT_USE_POINTERS;
-	}
-	else
-		self->element_size = element_size;
-	if(cmp == NULL)
-		self->options |= OPT_NOCMP;
-
-	return self;
 }
 
-int btree_sethook_release(
-		btree_t *self,
-		void (*release)(void *a))
+void *btree_data(
+		btree_t *self)
 {
-	if(self->options & OPT_USE_DATA)
-		return -EINVAL;
-	self->cb.nodata.release = release;
-	return 0;
+	return self->data;
 }
 
-int btree_sethook_release2(
+void btree_sethook_subelement(
 		btree_t *self,
-		void (*release)(void *a, void *data))
+		int (*size)(btree_t *btree, const void *element),
+		void *(*sub)(btree_t *btree, void *element, int index))
 {
-	if(!(self->options & OPT_USE_DATA))
-		return -EINVAL;
-	self->cb.data.release = release;
-	return 0;
+	self->hook_size = size;
+	self->hook_sub = sub;
+}
+
+void btree_sethook_refcount(
+		btree_t *self,
+		int (*acquire)(btree_t *btree, void *element),
+		void (*release)(btree_t *btree, void *element))
+{
+	self->hook_release = release;
+	self->hook_acquire = acquire;
+}
+
+void btree_set_group_default(
+		btree_t *self,
+		void *group)
+{
+	self->group_default = group;
 }
 
 void btree_clear(
@@ -1121,8 +1090,9 @@ void btree_clear(
 			child_index = 0;
 		}
 
-		for(i = 0; i < cur->fill; i++)
-			RELEASE_E(self, cur->elements + i * self->element_size);
+		if(self->hook_release != NULL)
+			for(i = 0; i < cur->fill; i++)
+				self->hook_release(self, cur->elements + i * self->element_size);
 		prev = cur;
 		child_index = cur->child_index;
 		cur = cur->parent;
@@ -1168,7 +1138,7 @@ int btree_insert(
 	if((self->options & OPT_NOCMP) != 0) /* insert by key only if cmp is present */
 		return -EINVAL;
 
-	found = find_upper(self, element, &cur, &pos);
+	found = find_upper(self, element, &cur, &pos, self->group_default);
 	to_insert_before(self, &cur, &pos);
 	if((self->options & BTREE_OPT_MULTI_KEY) != 0 || !found)
 		return node_insert(self, cur, pos, element);
@@ -1209,7 +1179,7 @@ int btree_put(
 	if((self->options & OPT_NOCMP) != 0) /* insert by key only if cmp is used */
 		return -EINVAL;
 
-	found = find_lower(self, element, &cur, &pos);
+	found = find_lower(self, element, &cur, &pos, self->group_default);
 	if(found)
 		return node_replace(self, cur, pos, element);
 	else {
@@ -1268,7 +1238,7 @@ bool btree_contains(
 		btree_t *self,
 		const void *key)
 {
-	return find_lower(self, key, NULL, NULL);
+	return find_lower(self, key, NULL, NULL, self->group_default);
 }
 
 void *btree_get(
@@ -1277,7 +1247,7 @@ void *btree_get(
 {
 	int pos;
 	btree_node_t *node;
-	if(find_lower(self, key, &node, &pos))
+	if(find_lower(self, key, &node, &pos, self->group_default))
 		return GET_E(self, node->elements + pos * self->element_size);
 	else
 		return NULL;
@@ -1314,7 +1284,7 @@ int btree_remove(
 	if(self->options & OPT_NOCMP) /* remove by key only if cmp is present */
 		return -EINVAL;
 
-	if(!find_lower(self, element, &cur, &pos))
+	if(!find_lower(self, element, &cur, &pos, self->group_default))
 		return -ENOENT;
 	else
 		return node_remove(self, cur, pos);
@@ -1483,7 +1453,7 @@ int btree_find_lower(
 	if(self->options & OPT_NOCMP)
 		return -EINVAL;
 
-	find_lower(self, key, &node, &pos);
+	find_lower(self, key, &node, &pos, self->group_default);
 	index = to_index(node, pos);
 	if(it != NULL) {
 		memset(it, 0, sizeof(*it));
@@ -1511,7 +1481,7 @@ int btree_find_upper(
 	if(self->options & OPT_NOCMP)
 		return -EINVAL;
 
-	find_upper(self, key, &node, &pos);
+	find_upper(self, key, &node, &pos, self->group_default);
 	index = to_index(node, pos);
 	if(it != NULL) {
 		memset(it, 0, sizeof(*it));
@@ -1529,10 +1499,10 @@ int btree_find_upper(
 	return index;
 }
 
-int btree_find_lower_set(
+int btree_find_lower_group(
 		btree_t *self,
 		const void *key,
-		int (*cmpfn)(const void *a, const void *b),
+		void *group,
 		btree_it_t *it)
 {
 	btree_node_t *node;
@@ -1542,7 +1512,7 @@ int btree_find_lower_set(
 	if(self->options & OPT_NOCMP)
 		return -EINVAL;
 
-	find_lower_custom(self, key, cmpfn, &node, &pos);
+	find_lower(self, key, &node, &pos, group);
 	index = to_index(node, pos);
 	if(it != NULL) {
 		memset(it, 0, sizeof(*it));
@@ -1558,11 +1528,10 @@ int btree_find_lower_set(
 	return index;
 }
 
-int btree_find_lower_set2(
+int btree_find_upper_group(
 		btree_t *self,
 		const void *key,
-		int (*cmpfn)(const void *a, const void *b, void *data, void *cmpdata),
-		void *cmpdata,
+		void *group,
 		btree_it_t *it)
 {
 	btree_node_t *node;
@@ -1572,68 +1541,7 @@ int btree_find_lower_set2(
 	if(self->options & OPT_NOCMP)
 		return -EINVAL;
 
-	find_lower_custom2(self, key, cmpfn, cmpdata, &node, &pos);
-	index = to_index(node, pos);
-	if(it != NULL) {
-		memset(it, 0, sizeof(*it));
-		it->tree = self;
-		it->pos = pos;
-		it->node = node;
-		if(node == NULL)
-			it->element = NULL;
-		else
-			it->element = GET_E(self, node->elements + pos * self->element_size);
-		it->index = index;
-	}
-	return index;
-}
-
-int btree_find_upper_set(
-		btree_t *self,
-		const void *key,
-		int (*cmpfn)(const void *a, const void *b),
-		btree_it_t *it)
-{
-	btree_node_t *node;
-	int pos;
-	int index;
-
-	if(self->options & OPT_NOCMP)
-		return -EINVAL;
-
-	find_upper_custom(self, key, cmpfn, &node, &pos);
-	index = to_index(node, pos);
-	if(it != NULL) {
-		memset(it, 0, sizeof(*it));
-		it->tree = self;
-		it->pos = pos;
-		it->node = node;
-		if(node == NULL || pos == node->fill)
-			it->element = NULL;
-		else {
-			assert(index < btree_size(self));
-			it->element = GET_E(self, node->elements + pos * self->element_size);
-		}
-		it->index = index;
-	}
-	return index;
-}
-
-int btree_find_upper_set2(
-		btree_t *self,
-		const void *key,
-		int (*cmpfn)(const void *a, const void *b, void *data, void *cmpdata),
-		void *cmpdata,
-		btree_it_t *it)
-{
-	btree_node_t *node;
-	int pos;
-	int index;
-
-	if(self->options & OPT_NOCMP)
-		return -EINVAL;
-
-	find_upper_custom2(self, key, cmpfn, cmpdata, &node, &pos);
+	find_upper(self, key, &node, &pos, group);
 	index = to_index(node, pos);
 	if(it != NULL) {
 		memset(it, 0, sizeof(*it));

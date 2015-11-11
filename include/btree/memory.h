@@ -59,19 +59,29 @@ typedef struct {
 btree_t *btree_new(
 		int order,
 		int element_size,
-		int (*cmp)(const void *a, const void *b), /* if NULL, indices are used instead of keys */
-		int (*acquire)(void *a),
-		void (*release)(void *a),
+		int (*cmp)(btree_t *btree, const void *a, const void *b, void *group),
 		int options);
 
-btree_t *btree_new2(
-		int order,
-		int element_size,
-		int (*cmp)(const void *a, const void *b, void *data), /* if NULL, indices are used instead of keys */
-		int (*acquire)(void *a, void *data),
-		void (*release)(void *a, void *data),
-		int options,
+void btree_set_data(
+		btree_t *self,
 		void *data);
+
+void *btree_data(
+		btree_t *self);
+
+void btree_set_group_default(
+		btree_t *self,
+		void *group);
+
+void btree_sethook_subelement(
+		btree_t *self,
+		int (*size)(btree_t *btree, const void *element),
+		void *(*sub)(btree_t *btree, void *element, int index));
+
+void btree_sethook_refcount(
+		btree_t *self,
+		int (*acquire)(btree_t *btree, void *element),
+		void (*release)(btree_t *btree, void *element));
 
 void btree_clear(
 		btree_t *self);
@@ -86,14 +96,6 @@ void btree_destroy(
 bool btree_contains(
 		btree_t *self,
 		const void *key);
-
-int btree_sethook_release(
-		btree_t *self,
-		void (*release)(void *a));
-
-int btree_sethook_release2(
-		btree_t *self,
-		void (*release)(void *a, void *data));
 
 /* find lower bound using custom compare function.
  * NOTE: the custom compare function may group together
@@ -205,31 +207,17 @@ int btree_find_upper(
 		btree_it_t *it);
 
 /* returns the first element a in tree for which holds a >= key using given cmp function */
-int btree_find_lower_set(
+int btree_find_lower_group(
 		btree_t *self,
 		const void *key,
-		int (*cmp)(const void *a, const void *b),
-		btree_it_t *it);
-
-int btree_find_lower_set2(
-		btree_t *self,
-		const void *key,
-		int (*cmp)(const void *a, const void *b, void *data, void *cmpdata), /* data: pointer handed over by btree_new2 OR NULL if tree was created with btree_new */
-		void *cmpdata,
+		void *group,
 		btree_it_t *it);
 
 /* returns the last element a in tree for which holds a <= key using given cmp function */
-int btree_find_upper_set(
+int btree_find_upper_group( /* TODO rename 'set' methods to 'group' */
 		btree_t *self,
 		const void *key,
-		int (*cmp)(const void *a, const void *b),
-		btree_it_t *it);
-
-int btree_find_upper_set2(
-		btree_t *self,
-		const void *key,
-		int (*cmp)(const void *a, const void *b, void *data, void *cmpdata),
-		void *cmpdata,
+		void *group,
 		btree_it_t *it);
 
 /* return -ENOENT when trying to process btree_find_end(). */
