@@ -13,8 +13,7 @@
 
 enum {
 	OPT_NOCMP = 0x01000000, /* no compare function given, use indices only */
-	OPT_USE_POINTERS = 0x02000000, /* pointers are stored (element_size = -1 in ctor) */
-	OPT_USE_DATA = 0x04000000 /* use the 'data' versions of the callback functions */
+	OPT_USE_POINTERS = 0x02000000 /* pointers are stored (element_size = -1 in ctor) */
 };
 
 #define MIN(X, Y) ((X) < (Y) ? (X) : (Y))
