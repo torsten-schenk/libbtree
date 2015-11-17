@@ -6,7 +6,7 @@ set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall")
 
 set(btree_SOURCES
-	btree.c bdb_btree.c bdb_store.c
+	memory.c bdb_btree.c bdb_store.c
 )
 
 set(testlib_SOURCES
