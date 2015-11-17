@@ -62,6 +62,12 @@ btree_t *btree_new(
 		int (*cmp)(btree_t *btree, const void *a, const void *b, void *group),
 		int options);
 
+uint64_t btree_memory_total(
+		btree_t *self);
+
+uint64_t btree_memory_payload(
+		btree_t *self);
+
 void btree_set_data(
 		btree_t *self,
 		void *data);

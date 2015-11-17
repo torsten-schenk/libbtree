@@ -951,6 +951,32 @@ btree_t *btree_new(
 	return self;
 }
 
+uint64_t btree_memory_total(
+		btree_t *self)
+{
+	uint64_t bytes = sizeof(btree_t) + self->element_size; /* see alloc_tree() */
+	btree_node_t *cur;
+	int n_nodes = 0;
+	int pow = 0;
+	for(cur = self->root; cur != NULL; cur = cur->links[0].child) {
+		if(pow == 0)
+			pow = 1;
+		else
+			pow *= self->order;
+		n_nodes += pow;
+	}
+	bytes += n_nodes * (sizeof(btree_node_t) + sizeof(btree_link_t) * tree->order + tree->element_size * (tree->order - 1)); /* see alloc_node() */
+	return bytes;
+}
+
+uint64_t btree_memory_payload(
+		btree_t *self)
+{
+	if(self->root == NULL)
+		return 0;
+	return self->element_size * (self->root->links[self->root->fill].offset + self->root->links[self->root->fill].count);
+}
+
 void btree_set_data(
 		btree_t *self,
 		void *data)
