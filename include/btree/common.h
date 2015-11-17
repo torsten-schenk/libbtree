@@ -1,5 +1,8 @@
 #ifndef _BTREE_COMMON_H
 #define _BTREE_COMMON_H
+
+#include <stdint.h>
+
 enum {
 	BTREE_OPT_DEFAULT = 0x00000000,
 	BTREE_OPT_KEEP_NODES = 0x00000001, /* don't free unused nodes, keep old ones and reuse them before allocating new nodes */
