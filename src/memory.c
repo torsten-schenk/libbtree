@@ -1096,6 +1096,36 @@ int btree_size(
 	return n;*/
 }
 
+int btree_swap(
+		btree_t *self,
+		int index_a,
+		int index_b)
+{
+	btree_node_t *node_a;
+	btree_node_t *node_b;
+	int pos_a;
+	int pos_b;
+
+	if((self->options & OPT_NOCMP) == 0 && (self->options & BTREE_OPT_ALLOW_INDEX) == 0) /* insert by index only if cmp is not used */
+		return -EINVAL;
+	else if(index_a < 0 || index_a >= btree_size(self))
+		return -EOVERFLOW;
+	else if(index_b < 0 || index_b >= btree_size(self))
+		return -EOVERFLOW;
+	else if(index_a == index_b)
+		return 0;
+
+	find_index(self, index_a, &node_a, &pos_a);
+	find_index(self, index_b, &node_b, &pos_b);
+	if((self->options & OPT_NOCMP) == 0 && self->hook_cmp(self, GET_E(self, node_a->elements + pos_a * self->element_size), GET_E(self, node_b->elements + pos_b * self->element_size), self->group_default) != 0)
+		return -EINVAL;
+	memcpy(self->overflow_element, node_a->elements + pos_a * self->element_size, self->element_size);
+	memcpy(node_a->elements + pos_a * self->element_size, node_b->elements + pos_b * self->element_size, self->element_size);
+	memcpy(node_b->elements + pos_b * self->element_size, self->overflow_element, self->element_size);
+	memset(self->overflow_element, 0, self->element_size);
+	return 0;
+}
+
 int btree_insert(
 		btree_t *self,
 		void *element)

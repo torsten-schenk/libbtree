@@ -103,6 +103,11 @@ bool btree_contains(
 		btree_t *self,
 		const void *key);
 
+int btree_swap(
+		btree_t *self,
+		int index_a,
+		int index_b);
+
 /* find lower bound using custom compare function.
  * NOTE: the custom compare function may group together
  * multiple elements BUT foreach group g1 and g2
