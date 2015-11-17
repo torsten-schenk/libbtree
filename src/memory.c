@@ -1109,7 +1109,10 @@ int btree_insert(
 	if((self->options & OPT_NOCMP) != 0) /* insert by key only if cmp is present */
 		return -EINVAL;
 
-	found = find_upper(self, element, &cur, &pos, self->group_default);
+	if((self->options & BTREE_OPT_INSERT_LOWER) != 0)
+		found = find_lower(self, element, &cur, &pos, self->group_default);
+	else
+		found = find_upper(self, element, &cur, &pos, self->group_default);
 	to_insert_before(self, &cur, &pos);
 	if((self->options & BTREE_OPT_MULTI_KEY) != 0 || !found)
 		return node_insert(self, cur, pos, element);
