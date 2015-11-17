@@ -231,6 +231,11 @@ int btree_find_upper_group( /* TODO rename 'set' methods to 'group' */
 		void *group,
 		btree_it_t *it);
 
+/* call this function after the element (at least its key) has been modified.
+ * this function checks, whether the element is valid at the iterator's position */
+int btree_validate_modified(
+		btree_it_t *it);
+
 /* return -ENOENT when trying to process btree_find_end(). */
 int btree_iterate_next(
 		btree_it_t *it);

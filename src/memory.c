@@ -1570,6 +1570,12 @@ int btree_find_upper_group(
 	return index;
 }
 
+int btree_validate_modified(
+		btree_it_t *it)
+{
+	return validate_at(it->tree, it->element, it->node, it->pos, true) ? 0 : -EINVAL;
+}
+
 int btree_iterate_next(
 		btree_it_t *it)
 {
