@@ -910,6 +910,38 @@ static bool to_prev(
 	return true;
 }
 
+/* check, whether the specified element can be inserted/set at given index */
+static bool validate_at(
+		btree_t *tree,
+		const void *element,
+		btree_node_t *node,
+		int pos,
+		bool replace)
+{
+	btree_node_t *other_node;
+	int other_pos;
+	bool found;
+
+	other_node = node;
+	other_pos = pos;
+	found = to_prev(&other_node, &other_pos);
+	if(found && tree->hook_cmp(tree, GET_E(tree, other_node->elements + other_pos * tree->element_size), element, tree->group_default) > 0) /* element before must be <= element to insert */
+		return false;
+	if(replace) {
+		other_node = node;
+		other_pos = pos;
+		found = to_next(&other_node, &other_pos);
+	}
+	else {
+		other_node = node;
+		other_pos = pos;
+		found = pos < node->fill;
+	}
+	if(found && tree->hook_cmp(tree, GET_E(tree, other_node->elements + other_pos * tree->element_size), element, tree->group_default) < 0) /* element after must be >= element to insert */
+		return false;
+	return true;
+}
+
 btree_t *btree_new(
 		int order,
 		int element_size,
@@ -965,7 +997,7 @@ uint64_t btree_memory_total(
 			pow *= self->order;
 		n_nodes += pow;
 	}
-	bytes += n_nodes * (sizeof(btree_node_t) + sizeof(btree_link_t) * tree->order + tree->element_size * (tree->order - 1)); /* see alloc_node() */
+	bytes += n_nodes * (sizeof(btree_node_t) + sizeof(btree_link_t) * self->order + self->element_size * (self->order - 1)); /* see alloc_node() */
 	return bytes;
 }
 
@@ -1095,12 +1127,14 @@ int btree_insert_at(
 
 	assert(self->overflow_node == NULL);
 
-	if((self->options & OPT_NOCMP) == 0) /* insert by index only if cmp is not used */
+	if((self->options & OPT_NOCMP) == 0 && (self->options & BTREE_OPT_ALLOW_INDEX) == 0) /* insert by index only if cmp is not used */
 		return -EINVAL;
 	else if(index < 0 || index > btree_size(self))
 		return -EOVERFLOW;
 
 	find_index(self, index, &cur, &pos);
+	if((self->options & OPT_NOCMP) == 0 && !validate_at(self, element, cur, pos, false))
+		return -EINVAL;
 	to_insert_before(self, &cur, &pos);
 	return node_insert(self, cur, pos, element);
 }
@@ -1138,15 +1172,20 @@ int btree_put_at(
 
 	assert(self->overflow_node == NULL);
 
-	if((self->options & OPT_NOCMP) == 0) /* insert by index only if cmp is not used */
+	if((self->options & OPT_NOCMP) == 0 && (self->options & BTREE_OPT_ALLOW_INDEX) == 0) /* put by index only if cmp is not used */
 		return -EINVAL;
 	else if(index < 0 || index > btree_size(self))
 		return -EOVERFLOW;
 
 	found = find_index(self, index, &cur, &pos);
-	if(found)
+	if(found) {
+		if((self->options & OPT_NOCMP) == 0 && !validate_at(self, element, cur, pos, true))
+			return -EINVAL;
 		return node_replace(self, cur, pos, element);
+	}
 	else {
+		if((self->options & OPT_NOCMP) == 0 && !validate_at(self, element, cur, pos, false))
+			return -EINVAL;
 		to_insert_before(self, &cur, &pos);
 		return node_insert(self, cur, pos, element);
 	}
