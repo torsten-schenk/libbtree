@@ -195,6 +195,7 @@ db_recno_t bdb_store_get(
 	DBT dbt_data;
 	db_recno_t recno;
 	int ret;
+	u_int32_t flags;
 
 	if(len == 0) {
 		errno = 0;
@@ -218,6 +219,25 @@ db_recno_t bdb_store_get(
 
 	ret = self->secondary->exists(self->secondary, txn, &dbt_skey, 0);
 	if(ret == DB_NOTFOUND) {
+		ret = self->primary->get_open_flags(self->primary, &flags);
+		if(ret != 0) {
+			errno = ret;
+			return 0;
+		}
+		else if((flags & DB_RDONLY) != 0) {
+			ret = DB_NOTFOUND;
+			return 0;
+		}
+		ret = self->secondary->get_open_flags(self->secondary, &flags);
+		if(ret != 0) {
+			errno = ret;
+			return 0;
+		}
+		else if((flags & DB_RDONLY) != 0) {
+			ret = DB_NOTFOUND;
+			return 0;
+		}
+
 		dbt_data.data = malloc(len + SIZE_U32);
 		if(dbt_data.data == NULL) {
 			errno = -ENOMEM;
