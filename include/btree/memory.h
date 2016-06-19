@@ -89,10 +89,19 @@ void btree_sethook_refcount(
 		int (*acquire)(btree_t *btree, void *element),
 		void (*release)(btree_t *btree, void *element));
 
-void btree_clear(
+int btree_clear(
 		btree_t *self);
 
 void btree_destroy(
+		btree_t *self);
+
+/* after calling this function, no further insertions/deletions are possible.
+ * it is also ensured, that the pointers returned by btree_get() and other methods
+ * will be valid until the btree instance is destroyed */
+void btree_finalize(
+		btree_t *self);
+
+int btree_is_finalized(
 		btree_t *self);
 
 /*int btree_index_of(

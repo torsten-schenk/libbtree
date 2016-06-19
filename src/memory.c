@@ -13,7 +13,8 @@
 
 enum {
 	OPT_NOCMP = 0x01000000, /* no compare function given, use indices only */
-	OPT_USE_POINTERS = 0x02000000 /* pointers are stored (element_size = -1 in ctor) */
+	OPT_USE_POINTERS = 0x02000000, /* pointers are stored (element_size = -1 in ctor) */
+	OPT_FINALIZED = 0x04000000 /* btree_finalize() has been called, no further insertions/deletions */
 };
 
 #define MIN(X, Y) ((X) < (Y) ? (X) : (Y))
@@ -1046,13 +1047,16 @@ void btree_set_group_default(
 	self->group_default = group;
 }
 
-void btree_clear(
+int btree_clear(
 		btree_t *self)
 {
 	btree_node_t *prev;
 	btree_node_t *cur = self->root;
 	int child_index = 0;
 	int i;
+
+	if((self->options & OPT_FINALIZED) != 0)
+		return -EINVAL;
 
 	while(cur != NULL) {
 		while(child_index <= cur->fill && cur->links[child_index].child != NULL) {
@@ -1072,6 +1076,19 @@ void btree_clear(
 		free_node(prev);
 	}
 	self->root = NULL;
+	return 0;
+}
+
+void btree_finalize(
+		btree_t *self)
+{
+	self->options |= OPT_FINALIZED;
+}
+
+int btree_is_finalized(
+		btree_t *self)
+{
+	return (self->options & OPT_FINALIZED) != 0;
 }
 
 void btree_destroy(
@@ -1105,7 +1122,9 @@ int btree_swap(
 	int pos_a;
 	int pos_b;
 
-	if((self->options & OPT_NOCMP) == 0 && (self->options & BTREE_OPT_ALLOW_INDEX) == 0) /* insert by index only if cmp is not used */
+	if((self->options & OPT_FINALIZED) != 0)
+		return -EINVAL;
+	else if((self->options & OPT_NOCMP) == 0 && (self->options & BTREE_OPT_ALLOW_INDEX) == 0) /* insert by index only if cmp is not used */
 		return -EINVAL;
 	else if(index_a < 0 || index_a >= btree_size(self))
 		return -EOVERFLOW;
@@ -1135,7 +1154,9 @@ int btree_insert(
 
 	assert(self->overflow_node == NULL);
 
-	if((self->options & OPT_NOCMP) != 0) /* insert by key only if cmp is present */
+	if((self->options & OPT_FINALIZED) != 0)
+		return -EINVAL;
+	else if((self->options & OPT_NOCMP) != 0) /* insert by key only if cmp is present */
 		return -EINVAL;
 
 	if((self->options & BTREE_OPT_INSERT_LOWER) != 0)
@@ -1159,7 +1180,9 @@ int btree_insert_at(
 
 	assert(self->overflow_node == NULL);
 
-	if((self->options & OPT_NOCMP) == 0 && (self->options & BTREE_OPT_ALLOW_INDEX) == 0) /* insert by index only if cmp is not used */
+	if((self->options & OPT_FINALIZED) != 0)
+		return -EINVAL;
+	else if((self->options & OPT_NOCMP) == 0 && (self->options & BTREE_OPT_ALLOW_INDEX) == 0) /* insert by index only if cmp is not used */
 		return -EINVAL;
 	else if(index < 0 || index > btree_size(self))
 		return -EOVERFLOW;
@@ -1181,7 +1204,9 @@ int btree_put(
 
 	assert(self->overflow_node == NULL);
 
-	if((self->options & OPT_NOCMP) != 0) /* insert by key only if cmp is used */
+	if((self->options & OPT_FINALIZED) != 0)
+		return -EINVAL;
+	else if((self->options & OPT_NOCMP) != 0) /* insert by key only if cmp is used */
 		return -EINVAL;
 
 	found = find_lower(self, element, &cur, &pos, self->group_default);
@@ -1204,7 +1229,9 @@ int btree_put_at(
 
 	assert(self->overflow_node == NULL);
 
-	if((self->options & OPT_NOCMP) == 0 && (self->options & BTREE_OPT_ALLOW_INDEX) == 0) /* put by index only if cmp is not used */
+	if((self->options & OPT_FINALIZED) != 0)
+		return -EINVAL;
+	else if((self->options & OPT_NOCMP) == 0 && (self->options & BTREE_OPT_ALLOW_INDEX) == 0) /* put by index only if cmp is not used */
 		return -EINVAL;
 	else if(index < 0 || index > btree_size(self))
 		return -EOVERFLOW;
@@ -1291,7 +1318,9 @@ int btree_remove(
 
 	assert(self->overflow_node == NULL);
 
-	if(self->options & OPT_NOCMP) /* remove by key only if cmp is present */
+	if((self->options & OPT_FINALIZED) != 0)
+		return -EINVAL;
+	else if(self->options & OPT_NOCMP) /* remove by key only if cmp is present */
 		return -EINVAL;
 
 	if(!find_lower(self, element, &cur, &pos, self->group_default))
@@ -1309,7 +1338,9 @@ int btree_remove_at(
 
 	assert(self->overflow_node == NULL);
 
-	if(!find_index(self, index, &node, &pos))
+	if((self->options & OPT_FINALIZED) != 0)
+		return -EINVAL;
+	else if(!find_index(self, index, &node, &pos))
 		return -ENOENT;
 	else
 		return node_remove(self, node, pos);
