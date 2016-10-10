@@ -157,6 +157,14 @@ int bdb_btree_insert(
 		DB_TXN *txn,
 		void *element);
 
+/* updates value of the given element.
+ * note: if comparison is used, element must equal the stored element at index. */
+int bdb_btree_update(
+		bdb_btree_t *self,
+		DB_TXN *txn,
+		int index,
+		void *element);
+
 int bdb_btree_insert_at(
 		bdb_btree_t *self,
 		DB_TXN *txn,

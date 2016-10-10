@@ -1790,9 +1790,9 @@ static int node_replace(
 	if(node_cache == NULL)
 		return errno;
 
+	ACQUIRE_E(tree, element);
 	RELEASE_E(tree, node_cache->buffer + OFF_NODE_ELEMENT(tree, pos));
 	buffer_set_data(node_cache->buffer, OFF_NODE_ELEMENT(tree, pos), element, tree->element_size);
-	ACQUIRE_E(tree, element);
 	return 0;
 }
 
@@ -2556,6 +2556,40 @@ int bdb_btree_insert(
 		return cache_cleanup(self, txn, node_insert(self, txn, node, pos, element));
 	else
 		return cache_cleanup(self, txn, -EALREADY);
+}
+
+int bdb_btree_update(
+		bdb_btree_t *self,
+		DB_TXN *txn,
+		int index,
+		void *element)
+{
+	db_recno_t node;
+	int pos;
+	int size;
+	void *stored;
+	cache_t *node_cache;
+
+	size = bdb_btree_size(self, txn);
+	if(size < 0)
+		return cache_cleanup(self, txn, size);
+	else if(index < 0 || index >= size)
+		return cache_cleanup(self, txn, -EOVERFLOW);
+
+	if(!find_index(self, txn, index, &node, &pos)) {
+		if(errno == 0)
+			return cache_cleanup(self, txn, -ENOENT);
+		else
+			return cache_cleanup(self, txn, errno);
+	}
+	node_cache = cache_get(self, txn, node);
+	if(node_cache == NULL)
+		return cache_cleanup(self, txn, errno);
+	stored = node_cache->buffer + OFF_NODE_ELEMENT(self, pos);
+
+	if((self->options & OPT_NOCMP) == 0 && CMP_E(self, element, stored) != 0)
+		return cache_cleanup(self, txn, -EINVAL);
+	return cache_cleanup(self, txn, node_replace(self, txn, node, pos, element));
 }
 
 int bdb_btree_insert_at(
