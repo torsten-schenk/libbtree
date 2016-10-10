@@ -1793,6 +1793,7 @@ static int node_replace(
 	ACQUIRE_E(tree, element);
 	RELEASE_E(tree, node_cache->buffer + OFF_NODE_ELEMENT(tree, pos));
 	buffer_set_data(node_cache->buffer, OFF_NODE_ELEMENT(tree, pos), element, tree->element_size);
+	node_cache->modified = true;
 	return 0;
 }
 
