@@ -1376,11 +1376,11 @@ int btree_find_begin(
 	btree_node_t *child = self->root;
 	btree_node_t *node = child;
 
-	while(child != NULL) {
-		node = child;
-		child = node->links[0].child;
-	}
 	if(it != NULL) {
+		while(child != NULL) {
+			node = child;
+			child = node->links[0].child;
+		}
 		memset(it, 0, sizeof(*it));
 		if(node == NULL)
 			it->element = NULL;
@@ -1419,9 +1419,9 @@ int btree_find_end(
 	for(i = 0; i <= node->fill; i++)
 		index += node->links[i].count;
 	
-	while(node->links[node->fill].child != NULL)
-		node = node->links[node->fill].child;
 	if(it != NULL) {
+		while(node->links[node->fill].child != NULL)
+			node = node->links[node->fill].child;
 		it->index = index;
 		it->node = node;
 		it->pos = node->fill;
