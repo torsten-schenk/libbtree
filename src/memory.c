@@ -605,13 +605,14 @@ static int node_replace(
 		void *element)
 {
 	if(tree->hook_release != NULL)
-		tree->hook_release(tree, node->elements + pos * tree->element_size);
+		tree->hook_release(tree, GET_E(tree, node->elements + pos * tree->element_size));
 	SET_EP(tree, node->elements + pos * tree->element_size, element);
 	if(tree->hook_acquire != NULL)
 		tree->hook_acquire(tree, element);
 	return 0;
 }
 
+/* TODO casual segfault when removing items from an even-order btree */
 static int node_remove(
 		btree_t *tree,
 		btree_node_t *node,
@@ -620,7 +621,7 @@ static int node_remove(
 	btree_node_t *cur;
 
 	if(tree->hook_release != NULL)
-		tree->hook_release(tree, node->elements + pos * tree->element_size);
+		tree->hook_release(tree, GET_E(tree, node->elements + pos * tree->element_size));
 	if(isleaf(node)) { /* node where the element is contained within is a leaf, simply remove it */
 		node->fill--;
 		memmove(node->elements + pos * tree->element_size, node->elements + (pos + 1) * tree->element_size, (node->fill - pos) * tree->element_size);
@@ -1066,7 +1067,7 @@ int btree_clear(
 
 		if(self->hook_release != NULL)
 			for(i = 0; i < cur->fill; i++)
-				self->hook_release(self, cur->elements + i * self->element_size);
+				self->hook_release(self, GET_E(self, cur->elements + i * self->element_size));
 		prev = cur;
 		child_index = cur->child_index;
 		cur = cur->parent;
