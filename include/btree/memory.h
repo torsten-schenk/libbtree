@@ -2,6 +2,7 @@
 #define _BTREE_MEMORY_H
 
 #include <stdbool.h>
+#include <stdio.h>
 
 #include <btree/common.h>
 
@@ -61,6 +62,30 @@ btree_t *btree_new(
 		int element_size,
 		int (*cmp)(btree_t *btree, const void *a, const void *b, void *group),
 		int options);
+
+/* use this function if element_size has been set to a fixed value in btree_new()
+ * 'write' writes btree-specific serialization data to the desired output stream.
+ * 'size' returns the serialized size of the given element.
+ * 'serialize' writes the array 'elements' with size 'n' to the output stream.
+ * */
+int btree_write(
+		btree_t *self,
+		int (*write)(const void *si, size_t size, void *user), /* returns: 0 on success, custom error otherwise; when finished, called with si = NULL */
+		size_t (*size)(const void *element, void *user),
+		int (*serialize)(const void *element, void *user),
+		void *user);
+
+/* use this function if element_size has been set to -1 in btree_new() */
+int btree_write_ptr(
+		btree_t *self,
+		int (*write)(const void *si, size_t size, void *user), /* returns: 0 on success, custom error otherwise; when finished, called with si = NULL */
+		size_t (*size)(const void **elements, int n, void *user), /* returns: size of n elements. only required if element_size has been set to -1. */
+		int (*serialize)(const void **elements, int n, void *user),
+		void *user);
+
+btree_t *btree_read(
+		int (*read)(void *di, size_t size, void *user),
+		void *user);
 
 uint64_t btree_memory_total(
 		btree_t *self);

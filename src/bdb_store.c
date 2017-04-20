@@ -215,7 +215,7 @@ db_recno_t bdb_store_get(
 	dbt_pkey.flags = DB_DBT_USERMEM;
 	dbt_skey.data = (void*)data;
 	dbt_skey.size = len;
-	dbt_skey.flags = DB_DBT_READONLY;
+/*	dbt_skey.flags = DB_DBT_READONLY;*/
 
 	ret = self->secondary->exists(self->secondary, txn, &dbt_skey, 0);
 	if(ret == DB_NOTFOUND) {
@@ -299,7 +299,7 @@ db_recno_t bdb_store_try(
 	dbt_pkey.flags = DB_DBT_USERMEM;
 	dbt_skey.data = (void*)data;
 	dbt_skey.size = len;
-	dbt_skey.flags = DB_DBT_READONLY;
+/*	dbt_skey.flags = DB_DBT_READONLY;*/
 
 	ret = self->secondary->exists(self->secondary, txn, &dbt_skey, 0);
 	if(ret == DB_NOTFOUND) {
