@@ -63,24 +63,23 @@ btree_t *btree_new(
 		int (*cmp)(btree_t *btree, const void *a, const void *b, void *group),
 		int options);
 
-/* use this function if element_size has been set to a fixed value in btree_new()
- * 'write' writes btree-specific serialization data to the desired output stream.
+/* 'write' writes btree-specific serialization data to the desired output stream.
  * 'size' returns the serialized size of the given element.
- * 'serialize' writes the array 'elements' with size 'n' to the output stream.
+ * 'serialize' writes the 'element' to the output stream. note that this function is expected to write exactly 'size'(element, user) bytes
  * */
 int btree_write(
 		btree_t *self,
-		int (*write)(const void *si, size_t size, void *user), /* returns: 0 on success, custom error otherwise; when finished, called with si = NULL */
 		size_t (*size)(const void *element, void *user),
 		int (*serialize)(const void *element, void *user),
+		int (*write)(const void *si, size_t size, void *user), /* returns: 0 on success, custom error otherwise; when finished, called with si = NULL */
 		void *user);
 
-/* use this function if element_size has been set to -1 in btree_new() */
-int btree_write_ptr(
+/* use this function if each element has a fixed serialized size */
+int btree_write_fixed(
 		btree_t *self,
+		size_t element_size,
+		int (*serialize)(const void *element, void *user),
 		int (*write)(const void *si, size_t size, void *user), /* returns: 0 on success, custom error otherwise; when finished, called with si = NULL */
-		size_t (*size)(const void **elements, int n, void *user), /* returns: size of n elements. only required if element_size has been set to -1. */
-		int (*serialize)(const void **elements, int n, void *user),
 		void *user);
 
 btree_t *btree_read(
