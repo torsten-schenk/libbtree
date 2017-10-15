@@ -10,6 +10,9 @@
 
 typedef struct btree btree_t;
 typedef struct btree_node btree_node_t;
+typedef int (*btree_cmp_t)(btree_t *btree, const void *a, const void *b, void *group);
+typedef int (*btree_acquire_t)(btree_t *btree, void *element);
+typedef void (*btree_release_t)(btree_t *btree, void *element);
 
 /*
  * best practices when using keys (i.e. a compare function is given):
@@ -60,7 +63,7 @@ typedef struct {
 btree_t *btree_new(
 		int order,
 		int element_size,
-		int (*cmp)(btree_t *btree, const void *a, const void *b, void *group),
+		btree_cmp_t cmp,
 		int options);
 
 /* 'write' writes btree-specific serialization data to the desired output stream.
@@ -110,8 +113,8 @@ void btree_sethook_subelement(
 
 void btree_sethook_refcount(
 		btree_t *self,
-		int (*acquire)(btree_t *btree, void *element),
-		void (*release)(btree_t *btree, void *element));
+		btree_acquire_t acquire,
+		btree_release_t release);
 
 int btree_clear(
 		btree_t *self);
