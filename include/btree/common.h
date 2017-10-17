@@ -3,6 +3,11 @@
 
 #include <stdint.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+
 enum {
 	BTREE_OPT_DEFAULT = 0x00000000,
 	BTREE_OPT_KEEP_NODES = 0x00000001, /* don't free unused nodes, keep old ones and reuse them before allocating new nodes */
@@ -17,6 +22,10 @@ enum {
 enum {
 	BTREE_RDONLY = 0x00000001
 };
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif
 

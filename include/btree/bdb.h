@@ -1,9 +1,14 @@
-#pragma once
+#ifndef _BTREE_BDB_H
+#define _BTREE_BDB_H
 
 #include <stdbool.h>
 #include <db.h>
 
 #include <btree/common.h>
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 typedef struct bdb_store bdb_store_t;
 typedef struct bdb_btree bdb_btree_t;
@@ -286,4 +291,10 @@ int bdb_btree_iterate_prev(
 int bdb_btree_iterate_refresh(
 		bdb_btree_it_t *it,
 		DB_TXN *txn);
+
+#ifdef __cplusplus
+}
+#endif
+
+#endif
 

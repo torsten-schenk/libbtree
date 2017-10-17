@@ -6,6 +6,10 @@
 
 #include <btree/common.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /* TODO all methods: return -1/NULL and use errno in case of error */
 
 typedef struct btree btree_t;
@@ -283,6 +287,10 @@ int btree_iterate_prev(
 void btree_dump(
 		btree_t *self,
 		void (*print)(const void *element));
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif
 
