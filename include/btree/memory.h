@@ -47,6 +47,7 @@ typedef void (*btree_release_t)(btree_t *btree, void *element);
 typedef struct {
 	void *element;
 	int index;
+	bool found; /* indicator, whether exact match has been found. undefined for find_end() */
 
 	/* private */
 	btree_t *tree;

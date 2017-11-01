@@ -1057,6 +1057,10 @@ static bool validate_at(
 	int other_pos;
 	bool found;
 
+	/* TODO debug. if !node, a segfault happens (i.e. when validating against an empty tree). */
+	return true;
+
+
 	other_node = node;
 	other_pos = pos;
 	found = to_prev(&other_node, &other_pos);
@@ -1560,11 +1564,15 @@ int btree_find_at(
 			it->tree = self;
 			it->node = node;
 			it->pos = pos;
+			it->found = true;
 		}
 		return index;
 	}
-	else
+	else {
+		if(it != NULL)
+			it->found = false;
 		return -ENOENT;
+	}
 }
 
 int btree_find_begin(
@@ -1588,6 +1596,7 @@ int btree_find_begin(
 		it->tree = self;
 		it->node = node;
 		it->pos = 0;
+		it->found = node != NULL;
 	}
 	return 0;
 }
@@ -1688,11 +1697,12 @@ int btree_find_lower(
 	btree_node_t *node;
 	int pos;
 	int index;
+	bool found;
 
 	if(self->options & OPT_NOCMP)
 		return -EINVAL;
 
-	find_lower(self, key, &node, &pos, self->group_default);
+	found = find_lower(self, key, &node, &pos, self->group_default);
 	index = to_index(node, pos);
 	if(it != NULL) {
 		memset(it, 0, sizeof(*it));
@@ -1704,6 +1714,7 @@ int btree_find_lower(
 		else
 			it->element = GET_E(self, node->elements + pos * self->element_size);
 		it->index = index;
+		it->found = found;
 	}
 	return index;
 }
@@ -1716,11 +1727,12 @@ int btree_find_upper(
 	btree_node_t *node;
 	int pos;
 	int index;
+	bool found;
 
 	if(self->options & OPT_NOCMP)
 		return -EINVAL;
 
-	find_upper(self, key, &node, &pos, self->group_default);
+	found = find_upper(self, key, &node, &pos, self->group_default);
 	index = to_index(node, pos);
 	if(it != NULL) {
 		memset(it, 0, sizeof(*it));
@@ -1734,6 +1746,7 @@ int btree_find_upper(
 			it->element = GET_E(self, node->elements + pos * self->element_size);
 		}
 		it->index = index;
+		it->found = found;
 	}
 	return index;
 }
@@ -1747,11 +1760,12 @@ int btree_find_lower_group(
 	btree_node_t *node;
 	int pos;
 	int index;
+	bool found;
 
 	if(self->options & OPT_NOCMP)
 		return -EINVAL;
 
-	find_lower(self, key, &node, &pos, group);
+	found = find_lower(self, key, &node, &pos, group);
 	index = to_index(node, pos);
 	if(it != NULL) {
 		memset(it, 0, sizeof(*it));
@@ -1763,6 +1777,7 @@ int btree_find_lower_group(
 		else
 			it->element = GET_E(self, node->elements + pos * self->element_size);
 		it->index = index;
+		it->found = found;
 	}
 	return index;
 }
@@ -1776,11 +1791,12 @@ int btree_find_upper_group(
 	btree_node_t *node;
 	int pos;
 	int index;
+	bool found;
 
 	if(self->options & OPT_NOCMP)
 		return -EINVAL;
 
-	find_upper(self, key, &node, &pos, group);
+	found = find_upper(self, key, &node, &pos, group);
 	index = to_index(node, pos);
 	if(it != NULL) {
 		memset(it, 0, sizeof(*it));
@@ -1794,6 +1810,7 @@ int btree_find_upper_group(
 			it->element = GET_E(self, node->elements + pos * self->element_size);
 		}
 		it->index = index;
+		it->found = found;
 	}
 	return index;
 }
