@@ -1837,6 +1837,7 @@ int btree_iterate_next(
 		it->element = GET_E(it->tree, node->elements + pos * it->tree->element_size);
 	it->pos = pos;
 	it->node = node;
+	it->found = it->element != NULL;
 
 	return it->index;
 }
