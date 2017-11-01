@@ -1093,6 +1093,10 @@ btree_t *btree_new(
 		errno = EINVAL;
 		return NULL;
 	}
+	else if(order % 2 == 0) { /* TODO there is a bug when removing an entry from an even-order btree. prevent using even order. */
+		errno = EINVAL;
+		return NULL;
+	}
 	else if((options & BTREE_OPT_RESERVED) != 0) {
 		errno = EINVAL;
 		return NULL;
