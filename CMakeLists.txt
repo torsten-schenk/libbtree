@@ -6,7 +6,7 @@ set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall")
 
 set(btree_SOURCES
-	memory.c bdb_btree.c bdb_store.c
+	memory.c
 )
 
 set(testlib_SOURCES
@@ -31,8 +31,8 @@ include_directories(${CMAKE_CURRENT_SOURCE_DIR}/include)
 #set_target_properties(alltest PROPERTIES COMPILE_FLAGS -DTESTING)
 #target_link_libraries(alltest -lcunit -ldb)
 
-add_library(btree SHARED ${btree_SOURCE_FILES})
-target_link_libraries(btree -ldb)
+add_library(btree STATIC ${btree_SOURCE_FILES})
+target_link_libraries(btree)
 install(TARGETS btree DESTINATION lib)
-install(FILES include/btree/memory.h include/btree/bdb.h include/btree/common.h DESTINATION include/btree)
+install(FILES include/btree/memory.h include/btree/common.h DESTINATION include/btree)
 

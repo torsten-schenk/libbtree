@@ -1,4 +1,3 @@
-#include <endian.h>
 #include <stdint.h>
 #include <assert.h>
 #include <stdio.h>
@@ -23,8 +22,6 @@ enum {
 	WALK_DESCEND,
 	WALK_ASCEND
 };
-
-static const char *MAGIC = "btreeser";
 
 #define MIN(X, Y) ((X) < (Y) ? (X) : (Y))
 #define MAX(X, Y) ((X) > (Y) ? (X) : (Y))
@@ -68,22 +65,6 @@ typedef struct {
  * the general btree structure (those which don't have sibling gaps). */
 static btree_node_t *last_node_alloc = NULL;
 #endif
-
-typedef struct {
-	btree_t *self;
-	int error;
-	void *user;
-	int count;
-	union {
-		int (*write)(const void *si, size_t size, void *user);
-		int (*read)(void *di, size_t size, void *user);
-	} f;
-	union {
-		int (*serialize)(const void *element, void *user);
-	} s;
-	size_t fixed_size; /* each element has this size, if get_size == NULL */
-	size_t (*get_size)(const void *element, void *user);
-} io_context_t;
 
 struct btree_node {
 	btree_node_t *parent;
@@ -228,115 +209,6 @@ static inline bool isleaf(
 		btree_node_t *node)
 {
 	return node->links[0].child == NULL;
-}
-
-static void out_data(
-		io_context_t *ctx,
-		const void *si,
-		size_t n)
-{
-	if(ctx->error == 0)
-		ctx->error = ctx->f.write(si, n, ctx->user);
-}
-
-static void out_u8(
-		io_context_t *ctx,
-		uint8_t v)
-{
-	out_data(ctx, &v, 1);
-}
-
-static void out_u32(
-		io_context_t *ctx,
-		uint32_t v)
-{
-	v = htobe32(v);
-	out_data(ctx, &v, 4);
-}
-
-static void out_u64(
-		io_context_t *ctx,
-		uint64_t v)
-{
-	v = htobe64(v);
-	out_data(ctx, &v, 8);
-}
-
-static void out_header(
-		io_context_t *ctx)
-{
-	assert(strlen(MAGIC) == 8);
-	out_data(ctx, MAGIC, 8);
-	out_u32(ctx, 1); /* version */
-	out_u32(ctx, ctx->self->order);
-	out_u64(ctx, ctx->self->options);
-	if(ctx->get_size == NULL)
-		out_u64(ctx, ctx->fixed_size);
-	else
-		out_u64(ctx, 0);
-}
-
-static void out_eos(
-		io_context_t *ctx)
-{
-	out_data(ctx, NULL, 0);
-}
-
-static void walk(
-		btree_t *self,
-		void (*enter)(btree_node_t *node, io_context_t *ctx),
-		void (*leave)(btree_node_t *node, io_context_t *ctx),
-		io_context_t *ctx)
-{
-	btree_node_t *cur = self->root;
-	bool descend = true;
-	int index;
-
-	while(cur != NULL) {
-		while(descend) {
-			if(enter != NULL)
-				enter(cur, ctx);
-			if(isleaf(cur))
-				descend = false;
-			else
-				cur = cur->links[0].child;
-		}
-		while(!descend) {
-			if(leave != NULL)
-				leave(cur, ctx);
-			index = cur->child_index + 1;
-			cur = cur->parent;
-			if(cur == NULL)
-				descend = true;
-			else if(index <= cur->fill) {
-				cur = cur->links[index].child;
-				descend = true;
-			}
-		}
-	}
-}
-
-static void out_node_enter(
-		btree_node_t *node,
-		io_context_t *ctx)
-{
-	int i;
-	out_u8(ctx, WALK_DESCEND);
-	out_u32(ctx, node->child_index);
-	out_u32(ctx, node->fill);
-	for(i = 0; i < node->fill; i++) {
-		if(ctx->get_size != NULL) /* the size information for each field is only present, if get_size != NULL. otherwise ctx->fixed_size is used */
-			out_u64(ctx, ctx->get_size(GET_E(ctx->self, node->elements + i * ctx->self->element_size), ctx->user));
-		if(ctx->error == 0)
-			ctx->error = ctx->s.serialize(GET_E(ctx->self, node->elements + i * ctx->self->element_size), ctx->user);
-	}
-}
-
-static void out_node_leave(
-		btree_node_t *node,
-		io_context_t *ctx)
-{
-	out_u8(ctx, WALK_ASCEND);
 }
 
 static int newroot(
@@ -1124,69 +996,6 @@ btree_t *btree_new(
 		self->options |= OPT_NOCMP;
 
 	return self;
-}
-
-int btree_write(
-		btree_t *self,
-		size_t (*size)(const void *element, void *user),
-		int (*serialize)(const void *element, void *user),
-		int (*write)(const void *si, size_t size, void *user),
-		void *user)
-{
-	io_context_t ctx;
-
-	if((self->options & OPT_USE_POINTERS) != 0)
-		return -EINVAL;
-
-	memset(&ctx, 0, sizeof(ctx));
-	ctx.self = self;
-	ctx.get_size = size;
-	ctx.user = user;
-	ctx.f.write = write;
-	ctx.s.serialize = serialize;
-
-	out_header(&ctx);
-	walk(self, out_node_enter, out_node_leave, &ctx);
-	out_u8(&ctx, WALK_END);
-
-	out_eos(&ctx);
-	return ctx.error;
-}
-
-int btree_write_fixed(
-		btree_t *self,
-		size_t element_size,
-		int (*serialize)(const void *element, void *user),
-		int (*write)(const void *si, size_t size, void *user), /* returns: 0 on success, custom error otherwise; when finished, called with si = NULL */
-		void *user)
-{
-	io_context_t ctx;
-
-	if((self->options & OPT_USE_POINTERS) != 0)
-		return -EINVAL;
-	else if(element_size == 0)
-		return -EINVAL;
-
-	memset(&ctx, 0, sizeof(ctx));
-	ctx.self = self;
-	ctx.fixed_size = element_size;
-	ctx.user = user;
-	ctx.f.write = write;
-	ctx.s.serialize = serialize;
-
-	out_header(&ctx);
-	walk(self, out_node_enter, out_node_leave, &ctx);
-	out_u8(&ctx, WALK_END);
-
-	out_eos(&ctx);
-	return ctx.error;
-}
-
-btree_t *btree_read(
-		int (*read)(void *di, size_t size, void *user),
-		void *user)
-{
-	return NULL;
 }
 
 uint64_t btree_memory_total(
