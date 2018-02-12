@@ -1253,6 +1253,12 @@ void btree_set_group_default(
 	self->group_default = group;
 }
 
+void *btree_group_default(
+		btree_t *self)
+{
+	return self->group_default;
+}
+
 int btree_clear(
 		btree_t *self)
 {

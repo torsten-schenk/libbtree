@@ -111,6 +111,9 @@ void btree_set_group_default(
 		btree_t *self,
 		void *group);
 
+void *btree_group_default(
+		btree_t *self);
+
 void btree_sethook_subelement(
 		btree_t *self,
 		int (*size)(btree_t *btree, const void *element),
