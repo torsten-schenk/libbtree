@@ -1578,6 +1578,8 @@ int btree_find_at(
 		}
 		return index;
 	}
+	else if(index == btree_size(self))
+		return btree_find_end(self, it);
 	else {
 		if(it != NULL)
 			it->found = false;
