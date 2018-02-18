@@ -73,7 +73,7 @@ typedef struct {
 btree_t *btree_new(
 		int order,
 		int element_size,
-		btree_cmp_t cmp,
+		btree_cmp_t cmp, /* when using an external element, it is guaranteed to be the second operand. */
 		int options);
 
 /* 'write' writes btree-specific serialization data to the desired output stream.
