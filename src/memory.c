@@ -819,6 +819,30 @@ static void to_insert_before(
 	(*pos)++;
 }*/
 
+static int subtree_pos(
+		btree_node_t *node,
+		int index)
+{
+	int l = 0;
+	int u = node->fill;
+	int o;
+	int c;
+	int m;
+
+	while(l <= u) {
+		m = l + (u - l) / 2;
+		c = node->links[m].count;
+		o = node->links[m].offset;
+		if(o > index)
+			u = m - 1;
+		else if(o + c < index)
+			l = m + 1;
+		else
+			return m;
+	}
+	return -1;
+}
+
 static bool find_lower(
 		btree_t *tree,
 		const void *key,
@@ -859,6 +883,66 @@ static bool find_lower(
 	if(node_candidate == NULL && prev != NULL) { /* all element keys less than requested key, select imaginary element after end (rightmost leaf node) */
 		node_candidate = prev;
 		pos_candidate = prev->fill;
+	}
+	if(node != NULL)
+		*node = node_candidate;
+	if(pos != NULL)
+		*pos = pos_candidate;
+	return found;
+}
+
+static bool find_lower_in(
+		btree_t *tree,
+		int loff,
+		int uoff,
+		const void *key,
+		btree_node_t **node,
+		int *pos,
+		void *group)
+{
+	int u;
+	int l;
+	int m;
+	int cmp;
+	btree_node_t *node_candidate = NULL;
+	int pos_candidate = 0;
+	bool found = false;
+	btree_node_t *cur = tree->root;
+	btree_node_t *prev = NULL;
+	int prev_u;
+	int offset = 0;
+
+	while(cur != NULL) {
+		if(loff <= offset)
+			l = 0;
+		else
+			l = subtree_pos(cur, loff - offset);
+		if(uoff >= offset + cur->links[cur->fill].offset)
+			u = cur->fill;
+		else
+			u = subtree_pos(cur, uoff - offset);
+		prev = cur;
+		prev_u = u;
+		u--;
+		while(l <= u) {
+			m = l + (u - l) / 2;
+			cmp = tree->hook_cmp(tree, GET_E(tree, cur->elements + m * tree->element_size), key, group);
+			if(cmp >= 0) {
+				node_candidate = cur;
+				pos_candidate = m;
+				u = m - 1;
+				if(cmp == 0)
+					found = true;
+			}
+			else
+				l = m + 1;
+		}
+		offset += cur->links[l].offset;
+		cur = cur->links[l].child;
+	}
+	if(node_candidate == NULL && prev != NULL) { /* all element keys less than requested key, select imaginary element after end (rightmost leaf node) */
+		node_candidate = prev;
+		pos_candidate = prev_u;
 	}
 	if(node != NULL)
 		*node = node_candidate;
@@ -915,6 +999,75 @@ static bool find_upper(
 		*pos = pos_candidate;
 	return found;
 }
+
+static bool find_upper_in(
+		btree_t *tree,
+		int loff,
+		int uoff,
+		const void *key,
+		btree_node_t **node,
+		int *pos,
+		void *group)
+{
+	int u;
+	int l;
+	int m;
+	int cmp;
+	btree_node_t *node_candidate = NULL;
+	int pos_candidate = 0;
+	bool found = false;
+	btree_node_t *cur = tree->root;
+	btree_node_t *prev = NULL;
+	int prev_u;
+	int offset = 0;
+
+	while(cur != NULL) {
+		if(loff <= offset)
+			l = 0;
+		else {
+			l = subtree_pos(cur, loff - offset);
+			assert(l <= cur->fill);
+			assert(l >= 0);
+		}
+		if(uoff >= offset + cur->links[cur->fill].offset)
+			u = cur->fill;
+		else {
+			u = subtree_pos(cur, uoff - offset);
+			assert(u <= cur->fill);
+			assert(u >= 0);
+		}
+		prev = cur;
+		prev_u = u;
+		u--;
+		while(l <= u) {
+			m = l + (u - l) / 2;
+			cmp = tree->hook_cmp(tree, GET_E(tree, cur->elements + m * tree->element_size), key, group);
+			if(cmp > 0) {
+				node_candidate = cur;
+				pos_candidate = m;
+				u = m - 1;
+			}
+			else {
+				if(cmp == 0)
+					found = true;
+				l = m + 1;
+			}
+		}
+		offset += cur->links[l].offset;
+		cur = cur->links[l].child;
+	}
+
+	if(node_candidate == NULL && prev != NULL) { /* all element keys less than requested key, select imaginary element after end (rightmost leaf node) */
+		node_candidate = prev;
+		pos_candidate = prev_u;
+	}
+	if(node != NULL)
+		*node = node_candidate;
+	if(pos != NULL)
+		*pos = pos_candidate;
+	return found;
+}
+
 
 /* returns whether the given index has been found. if false:
  *   - 'node' == NULL: given index greater than size
@@ -1808,7 +1961,7 @@ int btree_find_upper_group(
 	if(self->options & OPT_NOCMP)
 		return -EINVAL;
 
-	found = find_upper(self, key, &node, &pos, group);
+	found = find_upper(self, key, &node, &pos, group); //TODO does find_upper return value make sense? reason: find_upper never returns a match. it is unclear, whether find_upper necessarily encounters an existing entry if it exists.
 	index = to_index(node, pos);
 	if(it != NULL) {
 		memset(it, 0, sizeof(*it));
@@ -1826,6 +1979,75 @@ int btree_find_upper_group(
 	}
 	return index;
 }
+
+int btree_find_lower_group_in(
+		btree_t *self,
+		int l,
+		int u,
+		const void *key,
+		void *group,
+		btree_it_t *it)
+{
+	btree_node_t *node;
+	int pos;
+	bool found;
+	int index;
+	int size = btree_size(self);
+
+	if(u < l || u > size || l > size)
+		return -EINVAL;
+	found = find_lower_in(self, l, u, key, &node, &pos, group);
+	index = to_index(node, pos);
+	if(it != NULL) {
+		memset(it, 0, sizeof(*it));
+		it->tree = self;
+		it->pos = pos;
+		it->node = node;
+		if(node == NULL)
+			it->element = NULL;
+		else
+			it->element = GET_E(self, node->elements + pos * self->element_size);
+		it->index = index;
+		it->found = found;
+	}
+	return index;
+}
+
+int btree_find_upper_group_in(
+		btree_t *self,
+		int l,
+		int u,
+		const void *key,
+		void *group,
+		btree_it_t *it)
+{
+	btree_node_t *node;
+	int pos;
+	bool found;
+	int index;
+	int size = btree_size(self);
+
+	if(u < l || u > size || l > size)
+		return -EINVAL;
+	found = find_upper_in(self, l, u, key, &node, &pos, group);
+	index = to_index(node, pos);
+	if(it != NULL) {
+		memset(it, 0, sizeof(*it));
+		it->tree = self;
+		it->pos = pos;
+		it->node = node;
+		if(node == NULL || pos == node->fill)
+			it->element = NULL;
+		else {
+			assert(index < btree_size(self));
+			it->element = GET_E(self, node->elements + pos * self->element_size);
+		}
+		it->index = index;
+		it->found = found;
+	}
+	return index;
+}
+
 
 int btree_validate_modified(
 		btree_it_t *it)

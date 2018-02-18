@@ -10,6 +10,11 @@
 extern "C" {
 #endif
 
+/* TODO version 2 of btree:
+ * - use size_t instead of int
+ * - calbacks: hand over btree_data() instead of btree_t
+ * - alignment alloc */
+	
 /* TODO all methods: return -1/NULL and use errno in case of error */
 
 typedef struct btree btree_t;
@@ -261,6 +266,18 @@ int btree_find_upper(
 		const void *key,
 		btree_it_t *it);
 
+int btree_find_lower_from(
+		btree_t *self,
+		int minindex,
+		const void *key,
+		btree_it_t *it);
+
+int btree_find_upper_to(
+		btree_t *self,
+		int maxindex,
+		const void *key,
+		btree_it_t *it);
+
 /* returns the first element a in tree for which holds a >= key using given cmp function */
 int btree_find_lower_group(
 		btree_t *self,
@@ -271,6 +288,24 @@ int btree_find_lower_group(
 /* returns the last element a in tree for which holds a <= key using given cmp function */
 int btree_find_upper_group( /* TODO rename 'set' methods to 'group' */
 		btree_t *self,
+		const void *key,
+		void *group,
+		btree_it_t *it);
+
+/* returns the first element a in tree for which holds a >= key using given cmp function */
+int btree_find_lower_group_in(
+		btree_t *self,
+		int l,
+		int u,
+		const void *key,
+		void *group,
+		btree_it_t *it);
+
+/* returns the last element a in tree for which holds a <= key using given cmp function */
+int btree_find_upper_group_in( /* TODO rename 'set' methods to 'group' */
+		btree_t *self,
+		int l,
+		int u,
 		const void *key,
 		void *group,
 		btree_it_t *it);
