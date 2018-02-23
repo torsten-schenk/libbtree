@@ -266,15 +266,15 @@ int btree_find_upper(
 		const void *key,
 		btree_it_t *it);
 
-int btree_find_lower_from(
+int btree_find_lower_cmp(
 		btree_t *self,
-		int minindex,
+		btree_cmp_t cmp,
 		const void *key,
 		btree_it_t *it);
 
-int btree_find_upper_to(
+int btree_find_upper_cmp(
 		btree_t *self,
-		int maxindex,
+		btree_cmp_t cmp,
 		const void *key,
 		btree_it_t *it);
 
@@ -286,8 +286,22 @@ int btree_find_lower_group(
 		btree_it_t *it);
 
 /* returns the last element a in tree for which holds a <= key using given cmp function */
-int btree_find_upper_group( /* TODO rename 'set' methods to 'group' */
+int btree_find_upper_group(
 		btree_t *self,
+		const void *key,
+		void *group,
+		btree_it_t *it);
+
+int btree_find_lower_group_cmp(
+		btree_t *self,
+		btree_cmp_t cmp,
+		const void *key,
+		void *group,
+		btree_it_t *it);
+
+int btree_find_upper_group_cmp(
+		btree_t *self,
+		btree_cmp_t cmp,
 		const void *key,
 		void *group,
 		btree_it_t *it);
@@ -302,8 +316,27 @@ int btree_find_lower_group_in(
 		btree_it_t *it);
 
 /* returns the last element a in tree for which holds a <= key using given cmp function */
-int btree_find_upper_group_in( /* TODO rename 'set' methods to 'group' */
+int btree_find_upper_group_in(
 		btree_t *self,
+		int l,
+		int u,
+		const void *key,
+		void *group,
+		btree_it_t *it);
+
+int btree_find_lower_group_in_cmp(
+		btree_t *self,
+		btree_cmp_t cmp,
+		int l,
+		int u,
+		const void *key,
+		void *group,
+		btree_it_t *it);
+
+/* returns the last element a in tree for which holds a <= key using given cmp function */
+int btree_find_upper_group_in_cmp(
+		btree_t *self,
+		btree_cmp_t cmp,
 		int l,
 		int u,
 		const void *key,
