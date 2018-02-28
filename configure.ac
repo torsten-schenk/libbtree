@@ -22,6 +22,8 @@ AC_C_INLINE
 AC_TYPE_SIZE_T
 
 # Output Makefile files.
-AC_CONFIG_FILES([Makefile src/Makefile])
+#AC_CONFIG_FILES([Makefile src/Makefile include/Makefile])
+AC_CONFIG_FILES([Makefile src/Makefile include/Makefile])
 AC_OUTPUT
+
 
