@@ -4,7 +4,7 @@
 #include <stdbool.h>
 #include <stdio.h>
 
-#include <btree/common.h>
+#include "common.h"
 
 #ifdef __cplusplus
 extern "C" {

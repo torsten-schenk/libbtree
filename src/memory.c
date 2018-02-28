@@ -6,7 +6,7 @@
 #include <string.h>
 #include <stdlib.h>
 
-#include <btree/memory.h>
+#include "../include/memory.h"
 
 /* TODO possible memory usage optimization:
  * different size for leaf nodes and itermediate nodes: leafs don't need link offset/count */
