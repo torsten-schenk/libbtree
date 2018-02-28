@@ -4,7 +4,7 @@ AC_INIT([btree], [1.0], [git@schenk.biz])
 AM_INIT_AUTOMAKE
 AC_CONFIG_SRCDIR([src/memory.c])
 AC_CONFIG_HEADERS([config.h])
-AC_CONFIG_MACRO_DIRS([m4])
+AC_CONFIG_MACRO_DIR([m4])
 
 # Checks for programs.
 AC_PROG_CC
