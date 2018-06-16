@@ -7,9 +7,12 @@ btree order: 15
 
 Runs: 5
 
-Optimization: -O3
+Notable flags: -O3 -fPIC
 
-Results time is given in msec
+Result times are given in msec
+
+Note, that there is a huge difference in table "random insert elements", row "btree" when compiling the benchmark for qt4 vs qt5.
+The btree seems to benefit from memory previously allocated by qt5 qmap.
 
 ### random access
 | item | min | max | avg | median |
