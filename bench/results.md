@@ -94,3 +94,19 @@ The btree seems to benefit from memory previously allocated by qt5 qmap.
 | **std::map** | 593 | 595 | 593 | 594 |
 | **btree** | 709 | 1271 | 822 | 710 |
 
+### forward iteration
+| item | min | max | avg | median |
+|----------|----:|----:|----:|----:|
+| **qmap 4.8** | 23 | 23 | 23 | 23 |
+| **qmap 5.0** | 41 | 42 | 41 | 42 |
+| **std::map** | 42 | 43 | 42 | 43 |
+| **btree** | 41 | 42 | 41 | 41 |
+
+### reverse iteration
+| item | min | max | avg | median |
+|----------|----:|----:|----:|----:|
+| **qmap 4.8** | 26 | 27 | 26 | 26 |
+| **qmap 5.0** | 51 | 53 | 51 | 51 |
+| **std::map** | 56 | 69 | 59 | 56 |
+| **btree** | 38 | 39 | 38 | 38 |
+

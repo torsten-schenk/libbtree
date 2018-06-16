@@ -120,6 +120,9 @@ static void bench_read()
 	entry_t entry;
 	entry_t *pentry;
 
+	map.clear();
+	qmap.clear();
+	btree_clear(btree);
 	for(k = 0; k < ELEMS; k++) { // prepare both for access benchmarks
 		entry.key = k;
 		entry.value = k;
@@ -254,6 +257,9 @@ static void bench_insert()
 	entry_t entry;
 	entry_t *pentry;
 
+	map.clear();
+	qmap.clear();
+	btree_clear(btree);
 	for(i = 0; i < RUNS; i++) {
 		gettimeofday(&start, NULL);
 		for(k = 0; k < ELEMS; k++) {
@@ -340,7 +346,6 @@ static void bench_insert()
 		qmap.clear();
 	}
 	print_stats_md("random insert elements");
-
 }
 
 static void bench_remove()
@@ -352,6 +357,9 @@ static void bench_remove()
 	entry_t entry;
 	entry_t *pentry;
 
+	map.clear();
+	qmap.clear();
+	btree_clear(btree);
 	for(i = 0; i < RUNS; i++) {
 		for(k = 0; k < ELEMS; k++) {
 			entry.key = k;
@@ -458,6 +466,88 @@ static void bench_remove()
 	print_stats_md("remove last element");
 }
 
+static void bench_iterate()
+{
+	struct timeval start;
+	struct timeval end;
+	size_t i;
+	size_t k;
+	entry_t entry;
+	entry_t *pentry;
+	btree_it_t it;
+
+	map.clear();
+	qmap.clear();
+	btree_clear(btree);
+	for(k = 0; k < ELEMS; k++) { // prepare both for access benchmarks
+		entry.key = k;
+		entry.value = k;
+		btree_insert(btree, &entry);
+		qmap[k] = k;
+		map[k] = k;
+	}
+
+	for(i = 0; i < RUNS; i++) {
+		gettimeofday(&start, NULL);
+		for(btree_find_begin(btree, &it); it.element; btree_iterate_next(&it)) {
+			values[it.index] = ((entry_t*)it.element)->value;
+		}
+		gettimeofday(&end, NULL);
+		msec_btree[i] = (end.tv_sec - start.tv_sec) * 1000 + (end.tv_usec - start.tv_usec) / 1000;
+		consume(values);
+
+		gettimeofday(&start, NULL);
+		k = 0;
+		for(auto it = map.cbegin(); it != map.cend(); ++it) {
+			values[k++] = it->second;
+		}
+		gettimeofday(&end, NULL);
+		msec_map[i] = (end.tv_sec - start.tv_sec) * 1000 + (end.tv_usec - start.tv_usec) / 1000;
+		consume(values);
+
+		gettimeofday(&start, NULL);
+		k = 0;
+		for(auto it = qmap.begin(); it != qmap.end(); ++it) {
+			values[k++] = *it;
+		}
+		gettimeofday(&end, NULL);
+		msec_qmap[i] = (end.tv_sec - start.tv_sec) * 1000 + (end.tv_usec - start.tv_usec) / 1000;
+		consume(values);
+	}
+	print_stats_md("forward iteration");
+
+	for(i = 0; i < RUNS; i++) {
+		gettimeofday(&start, NULL);
+		for(btree_find_end(btree, &it); it.index;) {
+			btree_iterate_prev(&it);
+			values[it.index] = ((entry_t*)it.element)->value;
+		}
+		gettimeofday(&end, NULL);
+		msec_btree[i] = (end.tv_sec - start.tv_sec) * 1000 + (end.tv_usec - start.tv_usec) / 1000;
+		consume(values);
+
+		gettimeofday(&start, NULL);
+		k = 0;
+		for(auto it = map.crbegin(); it != map.crend(); ++it) {
+			values[k++] = it->second;
+		}
+		gettimeofday(&end, NULL);
+		msec_map[i] = (end.tv_sec - start.tv_sec) * 1000 + (end.tv_usec - start.tv_usec) / 1000;
+		consume(values);
+
+		gettimeofday(&start, NULL);
+		k = 0;
+		for(auto it = qmap.end(); it != qmap.begin();) {
+			--it;
+			values[k++] = *it;
+		}
+		gettimeofday(&end, NULL);
+		msec_qmap[i] = (end.tv_sec - start.tv_sec) * 1000 + (end.tv_usec - start.tv_usec) / 1000;
+		consume(values);
+	}
+	print_stats_md("reverse iteration");
+}
+
 int main()
 {
 	btree = btree_new(BTREE_ORDER, sizeof(entry_t), (btree_cmp_t)cmp_entry, 0);
@@ -465,19 +555,12 @@ int main()
 	mkseq(ELEMS);
 	
 	bench_read();
-	map.clear();
-	qmap.clear();
-	btree_clear(btree);
+
+	bench_iterate();
 
 	bench_remove();
-	map.clear();
-	qmap.clear();
-	btree_clear(btree);
 
 	bench_insert();
-	map.clear();
-	qmap.clear();
-	btree_clear(btree);
 
 	return 0;
 }
