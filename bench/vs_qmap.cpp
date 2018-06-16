@@ -41,12 +41,26 @@ static int cmp_entry(
 		return 0;
 }
 
-static void calc_stats(const uint64_t *samples, uint64_t &min, uint64_t &max, uint64_t &avg)
+static int cmp_int(const void *a_, const void *b_)
+{
+	const uint64_t *a = (const uint64_t*)a_;
+	const uint64_t *b = (const uint64_t*)b_;
+	if(*a < *b)
+		return -1;
+	else if(*a > *b)
+		return 1;
+	else
+		return 0;
+}
+
+static void calc_stats(uint64_t *samples, uint64_t &min, uint64_t &max, uint64_t &avg, uint64_t &median)
 {
 	uint64_t partavg = 0;
 	min = std::numeric_limits<uint64_t>::max();
 	max = std::numeric_limits<uint64_t>::min();
 	avg = 0;
+
+	qsort(samples, RUNS, sizeof(uint64_t), cmp_int);
 
 	for(size_t i = 0; i < RUNS; i++) {
 		if(samples[i] < min)
@@ -60,6 +74,7 @@ static void calc_stats(const uint64_t *samples, uint64_t &min, uint64_t &max, ui
 		}
 	}
 	avg /= RUNS / PARTIAL_AVG;
+	median = samples[RUNS / 2];
 }
 
 static void print_stats(const char *bench)
@@ -69,12 +84,12 @@ static void print_stats(const char *bench)
 	uint64_t avg;
 	uint64_t median;
 	printf("%s:\n", bench);
-	calc_stats(msec_qmap, min, max, avg);
-	printf("  qmap : min=%4llu     max=%4llu     avg=%4llu\n", min, max, avg);
-	calc_stats(msec_map, min, max, avg);
-	printf("  std::map : min=%4llu     max=%4llu     avg=%4llu\n", min, max, avg);
-	calc_stats(msec_btree, min, max, avg);
-	printf("  btree: min=%4llu     max=%4llu     avg=%4llu\n", min, max, avg);
+	calc_stats(msec_qmap, min, max, avg, median);
+	printf("  qmap : min=%4llu     max=%4llu     avg=%4llu     median=%4llu\n", min, max, avg, median);
+	calc_stats(msec_map, min, max, avg, median);
+	printf("  std::map : min=%4llu     max=%4llu     avg=%4llu     median=%4llu\n", min, max, avg, median);
+	calc_stats(msec_btree, min, max, avg, median);
+	printf("  btree: min=%4llu     max=%4llu     avg=%4llu     median=%4llu\n", min, max, avg, median);
 	printf("\n");
 }
 
@@ -85,14 +100,14 @@ static void print_stats_md(const char *bench)
 	uint64_t avg;
 	uint64_t median;
 	printf("### %s\n", bench);
-	printf("| item | min | max | avg |\n");
-	printf("|----------|----:|----:|----:|\n");
-	calc_stats(msec_qmap, min, max, avg);
-	printf("| **qmap 4.8** | %llu | %llu | %llu |\n", min, max, avg);
-	calc_stats(msec_map, min, max, avg);
-	printf("| **std::map** | %llu | %llu | %llu |\n", min, max, avg);
-	calc_stats(msec_btree, min, max, avg);
-	printf("| **btree** | %llu | %llu | %llu |\n", min, max, avg);
+	printf("| item | min | max | avg | median |\n");
+	printf("|----------|----:|----:|----:|----:|\n");
+	calc_stats(msec_qmap, min, max, avg, median);
+	printf("| **qmap 4.8** | %llu | %llu | %llu | %llu |\n", min, max, avg, median);
+	calc_stats(msec_map, min, max, avg, median);
+	printf("| **std::map** | %llu | %llu | %llu | %llu |\n", min, max, avg, median);
+	calc_stats(msec_btree, min, max, avg, median);
+	printf("| **btree** | %llu | %llu | %llu | %llu |\n", min, max, avg, median);
 	printf("\n");
 }
 
