@@ -11,7 +11,7 @@ Optimization: -O3
 
 Results:
 
-ccess
+### random access
 | item | min | max | avg |
 |----------|----:|----:|----:|
 | **qmap 4.8** | 922 | 924 | 923 |
