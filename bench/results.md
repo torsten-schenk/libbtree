@@ -9,7 +9,7 @@ Runs: 5
 
 Optimization: -O3
 
-Results:
+Results time is given in msec
 
 ### random access
 | item | min | max | avg |
