@@ -360,11 +360,11 @@ int main()
 
 	shuffle(sequence);
 	
-	bench_remove();
+	bench_read();
 	qmap.clear();
 	btree_clear(btree);
-	return 0;
-	bench_read();
+
+	bench_remove();
 	qmap.clear();
 	btree_clear(btree);
 
