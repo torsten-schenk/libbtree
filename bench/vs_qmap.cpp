@@ -1,3 +1,4 @@
+#include <assert.h>
 #include <limits>
 #include <sys/time.h>
 #include <btree/memory.h>
@@ -18,6 +19,9 @@ typedef struct {
 
 static uint64_t msec_qmap[RUNS];
 static uint64_t msec_btree[RUNS];
+static QMap<int, int> qmap;
+static btree_t *btree;
+static size_t *sequence;
 
 static int cmp_entry(
 		btree_t *tree,
@@ -98,19 +102,14 @@ static void print_stats_md(const char *bench)
 	printf("\n");
 }
 
-int main()
+static void bench_read()
 {
 	struct timeval start;
 	struct timeval end;
 	size_t i;
 	size_t k;
-	QMap<int, int> qmap;
 	entry_t entry;
 	entry_t *pentry;
-	btree_t *btree = btree_new(BTREE_ORDER, sizeof(entry_t), (btree_cmp_t)cmp_entry, 0);
-	size_t *sequence = (size_t*)malloc(sizeof(size_t) * ELEMS);
-	shuffle(sequence);
-
 
 	for(k = 0; k < ELEMS; k++) { // prepare both for access benchmarks
 		entry.key = k;
@@ -190,10 +189,16 @@ int main()
 		msec_qmap[i] = (end.tv_sec - start.tv_sec) * 1000 + (end.tv_usec - start.tv_usec) / 1000;
 	}
 	print_stats_md("middle access");
+}
 
-	
-	qmap.clear();
-	btree_clear(btree);
+static void bench_write()
+{
+	struct timeval start;
+	struct timeval end;
+	size_t i;
+	size_t k;
+	entry_t entry;
+	entry_t *pentry;
 
 	for(i = 0; i < RUNS; i++) {
 		gettimeofday(&start, NULL);
@@ -258,6 +263,114 @@ int main()
 	}
 	print_stats_md("random insert elements");
 
+}
+
+static void bench_remove()
+{
+	struct timeval start;
+	struct timeval end;
+	size_t i;
+	size_t k;
+	entry_t entry;
+	entry_t *pentry;
+
+	for(i = 0; i < RUNS; i++) {
+		for(k = 0; k < ELEMS; k++) {
+			entry.key = k;
+			entry.value = k;
+			btree_insert(btree, &entry);
+			qmap[k] = k;
+		}
+		gettimeofday(&start, NULL);
+		for(k = 0; k < ELEMS; k++) {
+			entry.key = sequence[k];
+			btree_remove(btree, &entry);
+		}
+		gettimeofday(&end, NULL);
+		msec_btree[i] = (end.tv_sec - start.tv_sec) * 1000 + (end.tv_usec - start.tv_usec) / 1000;
+
+		gettimeofday(&start, NULL);
+		for(k = 0; k < ELEMS; k++) {
+			qmap.erase(qmap.find(sequence[k]));
+		}
+		gettimeofday(&end, NULL);
+		msec_qmap[i] = (end.tv_sec - start.tv_sec) * 1000 + (end.tv_usec - start.tv_usec) / 1000;
+		assert(qmap.size() == 0);
+		assert(btree_size(btree) == 0);
+	}
+	print_stats_md("random remove elements");
+
+	for(i = 0; i < RUNS; i++) {
+		for(k = 0; k < ELEMS; k++) {
+			entry.key = k;
+			entry.value = k;
+			btree_insert(btree, &entry);
+			qmap[k] = k;
+		}
+		gettimeofday(&start, NULL);
+		for(k = 0; k < ELEMS; k++) {
+			entry.key = k;
+			btree_remove(btree, &entry);
+		}
+		gettimeofday(&end, NULL);
+		msec_btree[i] = (end.tv_sec - start.tv_sec) * 1000 + (end.tv_usec - start.tv_usec) / 1000;
+
+		gettimeofday(&start, NULL);
+		for(k = 0; k < ELEMS; k++) {
+			qmap.erase(qmap.find(k));
+		}
+		gettimeofday(&end, NULL);
+		msec_qmap[i] = (end.tv_sec - start.tv_sec) * 1000 + (end.tv_usec - start.tv_usec) / 1000;
+		assert(qmap.size() == 0);
+		assert(btree_size(btree) == 0);
+	}
+	print_stats_md("remove first element");
+
+	for(i = 0; i < RUNS; i++) {
+		for(k = 0; k < ELEMS; k++) {
+			entry.key = k;
+			entry.value = k;
+			btree_insert(btree, &entry);
+			qmap[k] = k;
+		}
+		gettimeofday(&start, NULL);
+		for(k = 0; k < ELEMS; k++) {
+			entry.key = ELEMS - k - 1;
+			btree_remove(btree, &entry);
+		}
+		gettimeofday(&end, NULL);
+		msec_btree[i] = (end.tv_sec - start.tv_sec) * 1000 + (end.tv_usec - start.tv_usec) / 1000;
+
+		gettimeofday(&start, NULL);
+		for(k = 0; k < ELEMS; k++) {
+			qmap.erase(qmap.find(ELEMS - k - 1));
+		}
+		gettimeofday(&end, NULL);
+		msec_qmap[i] = (end.tv_sec - start.tv_sec) * 1000 + (end.tv_usec - start.tv_usec) / 1000;
+		assert(qmap.size() == 0);
+		assert(btree_size(btree) == 0);
+	}
+	print_stats_md("remove last element");
+}
+
+int main()
+{
+	btree = btree_new(BTREE_ORDER, sizeof(entry_t), (btree_cmp_t)cmp_entry, 0);
+	sequence = (size_t*)malloc(sizeof(size_t) * ELEMS);
+
+	shuffle(sequence);
+	
+	bench_remove();
+	qmap.clear();
+	btree_clear(btree);
+	return 0;
+	bench_read();
+	qmap.clear();
+	btree_clear(btree);
+
+	bench_write();
+	qmap.clear();
+	btree_clear(btree);
 
 	return 0;
 }

@@ -51,4 +51,21 @@ Results:
 | **qmap** | 1449 | 1520 | 1482 |
 | **btree** | 1123 | 1267 | 1237 |
 
+### random remove elements
+| item | min | max | avg |
+|----------|----:|----:|----:|
+| **qmap** | 1967 | 2471 | 2317 |
+| **btree** | 982 | 1017 | 1009 |
+
+### remove first element
+| item | min | max | avg |
+|----------|----:|----:|----:|
+| **qmap** | 343 | 394 | 363 |
+| **btree** | 634 | 641 | 635 |
+
+### remove last element
+| item | min | max | avg |
+|----------|----:|----:|----:|
+| **qmap** | 1246 | 1410 | 1354 |
+| **btree** | 451 | 455 | 454 |
 
