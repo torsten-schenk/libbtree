@@ -7,65 +7,67 @@ btree order: 15
 
 Runs: 5
 
+Optimization: -O3
+
 Results:
 
 ### random access
 | item | min | max | avg |
 |----------|----:|----:|----:|
-| **qmap** | 1085 | 1086 | 1085 |
-| **btree** | 658 | 660 | 659 |
+| **qmap** | 720 | 722 | 720 |
+| **btree** | 452 | 453 | 452 |
 
 ### first access
 | item | min | max | avg |
 |----------|----:|----:|----:|
-| **qmap** | 142 | 144 | 142 |
-| **btree** | 270 | 272 | 271 |
+| **qmap** | 13 | 13 | 13 |
+| **btree** | 108 | 108 | 108 |
 
 ### last access
 | item | min | max | avg |
 |----------|----:|----:|----:|
-| **qmap** | 421 | 422 | 421 |
-| **btree** | 307 | 308 | 307 |
+| **qmap** | 89 | 89 | 89 |
+| **btree** | 121 | 122 | 121 |
 
 ### middle access
 | item | min | max | avg |
 |----------|----:|----:|----:|
-| **qmap** | 644 | 645 | 644 |
-| **btree** | 372 | 377 | 374 |
-
-### append elements
-| item | min | max | avg |
-|----------|----:|----:|----:|
-| **qmap** | 540 | 569 | 553 |
-| **btree** | 484 | 497 | 488 |
-
-### prepend elements
-| item | min | max | avg |
-|----------|----:|----:|----:|
-| **qmap** | 191 | 213 | 202 |
-| **btree** | 713 | 720 | 717 |
-
-### random insert elements
-| item | min | max | avg |
-|----------|----:|----:|----:|
-| **qmap** | 1449 | 1520 | 1482 |
-| **btree** | 1123 | 1267 | 1237 |
+| **qmap** | 66 | 73 | 68 |
+| **btree** | 121 | 122 | 121 |
 
 ### random remove elements
 | item | min | max | avg |
 |----------|----:|----:|----:|
-| **qmap** | 1967 | 2471 | 2317 |
-| **btree** | 982 | 1017 | 1009 |
+| **qmap** | 940 | 1255 | 1186 |
+| **btree** | 601 | 631 | 624 |
 
 ### remove first element
 | item | min | max | avg |
 |----------|----:|----:|----:|
-| **qmap** | 343 | 394 | 363 |
-| **btree** | 634 | 641 | 635 |
+| **qmap** | 123 | 133 | 128 |
+| **btree** | 224 | 225 | 224 |
 
 ### remove last element
 | item | min | max | avg |
 |----------|----:|----:|----:|
-| **qmap** | 1246 | 1410 | 1354 |
-| **btree** | 451 | 455 | 454 |
+| **qmap** | 266 | 319 | 290 |
+| **btree** | 184 | 194 | 189 |
+
+### append elements
+| item | min | max | avg |
+|----------|----:|----:|----:|
+| **qmap** | 97 | 126 | 107 |
+| **btree** | 203 | 217 | 206 |
+
+### prepend elements
+| item | min | max | avg |
+|----------|----:|----:|----:|
+| **qmap** | 49 | 55 | 51 |
+| **btree** | 224 | 230 | 227 |
+
+### random insert elements
+| item | min | max | avg |
+|----------|----:|----:|----:|
+| **qmap** | 1041 | 1073 | 1052 |
+| **btree** | 678 | 822 | 792 |
 
