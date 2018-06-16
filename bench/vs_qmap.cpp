@@ -3,8 +3,9 @@
 #include <sys/time.h>
 #include <btree/memory.h>
 #include <QMap>
+#include <map>
 
-#include "mkseq.h"
+#include "helper.h"
 
 #define BTREE_ORDER 15
 #define RUNS 5
@@ -18,10 +19,13 @@ typedef struct {
 	int value;
 } entry_t;
 
+static uint64_t msec_map[RUNS];
 static uint64_t msec_qmap[RUNS];
 static uint64_t msec_btree[RUNS];
 static QMap<int, int> qmap;
+static std::map<int, int> map;
 static btree_t *btree;
+static int values[ELEMS];
 
 static int cmp_entry(
 		btree_t *tree,
@@ -67,6 +71,8 @@ static void print_stats(const char *bench)
 	printf("%s:\n", bench);
 	calc_stats(msec_qmap, min, max, avg);
 	printf("  qmap : min=%4llu     max=%4llu     avg=%4llu\n", min, max, avg);
+	calc_stats(msec_map, min, max, avg);
+	printf("  std::map : min=%4llu     max=%4llu     avg=%4llu\n", min, max, avg);
 	calc_stats(msec_btree, min, max, avg);
 	printf("  btree: min=%4llu     max=%4llu     avg=%4llu\n", min, max, avg);
 	printf("\n");
@@ -82,7 +88,9 @@ static void print_stats_md(const char *bench)
 	printf("| item | min | max | avg |\n");
 	printf("|----------|----:|----:|----:|\n");
 	calc_stats(msec_qmap, min, max, avg);
-	printf("| **qmap** | %llu | %llu | %llu |\n", min, max, avg);
+	printf("| **qmap 4.8** | %llu | %llu | %llu |\n", min, max, avg);
+	calc_stats(msec_map, min, max, avg);
+	printf("| **std::map** | %llu | %llu | %llu |\n", min, max, avg);
 	calc_stats(msec_btree, min, max, avg);
 	printf("| **btree** | %llu | %llu | %llu |\n", min, max, avg);
 	printf("\n");
@@ -102,23 +110,35 @@ static void bench_read()
 		entry.value = k;
 		btree_insert(btree, &entry);
 		qmap[k] = k;
+		map[k] = k;
 	}
 
 	for(i = 0; i < RUNS; i++) {
 		gettimeofday(&start, NULL);
 		for(k = 0; k < ELEMS; k++) {
 			entry.key = sequence_rnd[k];
-			btree_get(btree, &entry);
+			pentry = (entry_t*)btree_get(btree, &entry);
+			values[k] = pentry->value;
 		}
 		gettimeofday(&end, NULL);
 		msec_btree[i] = (end.tv_sec - start.tv_sec) * 1000 + (end.tv_usec - start.tv_usec) / 1000;
+		consume(values);
 
 		gettimeofday(&start, NULL);
 		for(k = 0; k < ELEMS; k++) {
-			qmap[sequence_rnd[k]];
+			values[k] = map[sequence_rnd[k]];
+		}
+		gettimeofday(&end, NULL);
+		msec_map[i] = (end.tv_sec - start.tv_sec) * 1000 + (end.tv_usec - start.tv_usec) / 1000;
+		consume(values);
+
+		gettimeofday(&start, NULL);
+		for(k = 0; k < ELEMS; k++) {
+			values[k] = qmap[sequence_rnd[k]];
 		}
 		gettimeofday(&end, NULL);
 		msec_qmap[i] = (end.tv_sec - start.tv_sec) * 1000 + (end.tv_usec - start.tv_usec) / 1000;
+		consume(values);
 	}
 	print_stats_md("random access");
 
@@ -126,17 +146,28 @@ static void bench_read()
 		gettimeofday(&start, NULL);
 		for(k = 0; k < ELEMS; k++) {
 			entry.key = sequence_first[k];
-			btree_get(btree, &entry);
+			pentry = (entry_t*)btree_get(btree, &entry);
+			values[k] = pentry->value;
 		}
 		gettimeofday(&end, NULL);
 		msec_btree[i] = (end.tv_sec - start.tv_sec) * 1000 + (end.tv_usec - start.tv_usec) / 1000;
+		consume(values);
 
 		gettimeofday(&start, NULL);
 		for(k = 0; k < ELEMS; k++) {
-			qmap[sequence_first[k]];
+			values[k] = map[sequence_first[k]];
+		}
+		gettimeofday(&end, NULL);
+		msec_map[i] = (end.tv_sec - start.tv_sec) * 1000 + (end.tv_usec - start.tv_usec) / 1000;
+		consume(values);
+
+		gettimeofday(&start, NULL);
+		for(k = 0; k < ELEMS; k++) {
+			values[k] = qmap[sequence_first[k]];
 		}
 		gettimeofday(&end, NULL);
 		msec_qmap[i] = (end.tv_sec - start.tv_sec) * 1000 + (end.tv_usec - start.tv_usec) / 1000;
+		consume(values);
 	}
 	print_stats_md("first access");
 
@@ -144,17 +175,28 @@ static void bench_read()
 		gettimeofday(&start, NULL);
 		for(k = 0; k < ELEMS; k++) {
 			entry.key = sequence_last[k];
-			btree_get(btree, &entry);
+			pentry = (entry_t*)btree_get(btree, &entry);
+			values[k] = pentry->value;
 		}
 		gettimeofday(&end, NULL);
 		msec_btree[i] = (end.tv_sec - start.tv_sec) * 1000 + (end.tv_usec - start.tv_usec) / 1000;
+		consume(values);
 
 		gettimeofday(&start, NULL);
 		for(k = 0; k < ELEMS; k++) {
-			qmap[sequence_last[k]];
+			values[k] = map[sequence_last[k]];
+		}
+		gettimeofday(&end, NULL);
+		msec_map[i] = (end.tv_sec - start.tv_sec) * 1000 + (end.tv_usec - start.tv_usec) / 1000;
+		consume(values);
+
+		gettimeofday(&start, NULL);
+		for(k = 0; k < ELEMS; k++) {
+			values[k] = qmap[sequence_last[k]];
 		}
 		gettimeofday(&end, NULL);
 		msec_qmap[i] = (end.tv_sec - start.tv_sec) * 1000 + (end.tv_usec - start.tv_usec) / 1000;
+		consume(values);
 	}
 	print_stats_md("last access");
 
@@ -162,22 +204,33 @@ static void bench_read()
 		gettimeofday(&start, NULL);
 		for(k = 0; k < ELEMS; k++) {
 			entry.key = sequence_middle[k];
-			btree_get(btree, &entry);
+			pentry = (entry_t*)btree_get(btree, &entry);
+			values[k] = pentry->value;
 		}
 		gettimeofday(&end, NULL);
 		msec_btree[i] = (end.tv_sec - start.tv_sec) * 1000 + (end.tv_usec - start.tv_usec) / 1000;
+		consume(values);
 
 		gettimeofday(&start, NULL);
 		for(k = 0; k < ELEMS; k++) {
-			qmap[sequence_middle[k]];
+			values[k] = map[sequence_middle[k]];
+		}
+		gettimeofday(&end, NULL);
+		msec_map[i] = (end.tv_sec - start.tv_sec) * 1000 + (end.tv_usec - start.tv_usec) / 1000;
+		consume(values);
+
+		gettimeofday(&start, NULL);
+		for(k = 0; k < ELEMS; k++) {
+			values[k] = qmap[sequence_middle[k]];
 		}
 		gettimeofday(&end, NULL);
 		msec_qmap[i] = (end.tv_sec - start.tv_sec) * 1000 + (end.tv_usec - start.tv_usec) / 1000;
+		consume(values);
 	}
 	print_stats_md("middle access");
 }
 
-static void bench_write()
+static void bench_insert()
 {
 	struct timeval start;
 	struct timeval end;
@@ -199,7 +252,15 @@ static void bench_write()
 
 		gettimeofday(&start, NULL);
 		for(k = 0; k < ELEMS; k++) {
-			qmap[sequence_fwd[k]] = sequence_fwd[k];
+			map.insert(std::make_pair(sequence_fwd[k], sequence_fwd[k]));
+		}
+		gettimeofday(&end, NULL);
+		msec_map[i] = (end.tv_sec - start.tv_sec) * 1000 + (end.tv_usec - start.tv_usec) / 1000;
+		map.clear();
+
+		gettimeofday(&start, NULL);
+		for(k = 0; k < ELEMS; k++) {
+			qmap.insert(sequence_fwd[k], sequence_fwd[k]);
 		}
 		gettimeofday(&end, NULL);
 		msec_qmap[i] = (end.tv_sec - start.tv_sec) * 1000 + (end.tv_usec - start.tv_usec) / 1000;
@@ -220,7 +281,15 @@ static void bench_write()
 
 		gettimeofday(&start, NULL);
 		for(k = ELEMS; k > 0; k--) {
-			qmap[sequence_rev[k]] = sequence_rev[k];
+			map.insert(std::make_pair(sequence_rev[k], sequence_rev[k]));
+		}
+		gettimeofday(&end, NULL);
+		msec_map[i] = (end.tv_sec - start.tv_sec) * 1000 + (end.tv_usec - start.tv_usec) / 1000;
+		map.clear();
+
+		gettimeofday(&start, NULL);
+		for(k = ELEMS; k > 0; k--) {
+			qmap.insert(sequence_rev[k], sequence_rev[k]);
 		}
 		gettimeofday(&end, NULL);
 		msec_qmap[i] = (end.tv_sec - start.tv_sec) * 1000 + (end.tv_usec - start.tv_usec) / 1000;
@@ -241,7 +310,15 @@ static void bench_write()
 
 		gettimeofday(&start, NULL);
 		for(k = 0; k < ELEMS; k++) {
-			qmap[sequence_rnd[k]] = sequence_rnd[k];
+			map.insert(std::make_pair(sequence_rnd[k], sequence_rnd[k]));
+		}
+		gettimeofday(&end, NULL);
+		msec_map[i] = (end.tv_sec - start.tv_sec) * 1000 + (end.tv_usec - start.tv_usec) / 1000;
+		map.clear();
+
+		gettimeofday(&start, NULL);
+		for(k = 0; k < ELEMS; k++) {
+			qmap.insert(sequence_rnd[k], sequence_rnd[k]);
 		}
 		gettimeofday(&end, NULL);
 		msec_qmap[i] = (end.tv_sec - start.tv_sec) * 1000 + (end.tv_usec - start.tv_usec) / 1000;
@@ -266,6 +343,7 @@ static void bench_remove()
 			entry.value = k;
 			btree_insert(btree, &entry);
 			qmap[k] = k;
+			map[k] = k;
 		}
 		gettimeofday(&start, NULL);
 		for(k = 0; k < ELEMS; k++) {
@@ -277,10 +355,18 @@ static void bench_remove()
 
 		gettimeofday(&start, NULL);
 		for(k = 0; k < ELEMS; k++) {
+			map.erase(map.find(sequence_rnd[k]));
+		}
+		gettimeofday(&end, NULL);
+		msec_map[i] = (end.tv_sec - start.tv_sec) * 1000 + (end.tv_usec - start.tv_usec) / 1000;
+
+		gettimeofday(&start, NULL);
+		for(k = 0; k < ELEMS; k++) {
 			qmap.erase(qmap.find(sequence_rnd[k]));
 		}
 		gettimeofday(&end, NULL);
 		msec_qmap[i] = (end.tv_sec - start.tv_sec) * 1000 + (end.tv_usec - start.tv_usec) / 1000;
+		assert(map.size() == 0);
 		assert(qmap.size() == 0);
 		assert(btree_size(btree) == 0);
 	}
@@ -292,6 +378,7 @@ static void bench_remove()
 			entry.value = k;
 			btree_insert(btree, &entry);
 			qmap[k] = k;
+			map[k] = k;
 		}
 		gettimeofday(&start, NULL);
 		for(k = 0; k < ELEMS; k++) {
@@ -303,10 +390,18 @@ static void bench_remove()
 
 		gettimeofday(&start, NULL);
 		for(k = 0; k < ELEMS; k++) {
+			map.erase(map.find(sequence_fwd[k]));
+		}
+		gettimeofday(&end, NULL);
+		msec_map[i] = (end.tv_sec - start.tv_sec) * 1000 + (end.tv_usec - start.tv_usec) / 1000;
+
+		gettimeofday(&start, NULL);
+		for(k = 0; k < ELEMS; k++) {
 			qmap.erase(qmap.find(sequence_fwd[k]));
 		}
 		gettimeofday(&end, NULL);
 		msec_qmap[i] = (end.tv_sec - start.tv_sec) * 1000 + (end.tv_usec - start.tv_usec) / 1000;
+		assert(map.size() == 0);
 		assert(qmap.size() == 0);
 		assert(btree_size(btree) == 0);
 	}
@@ -318,6 +413,7 @@ static void bench_remove()
 			entry.value = k;
 			btree_insert(btree, &entry);
 			qmap[k] = k;
+			map[k] = k;
 		}
 		gettimeofday(&start, NULL);
 		for(k = 0; k < ELEMS; k++) {
@@ -329,10 +425,18 @@ static void bench_remove()
 
 		gettimeofday(&start, NULL);
 		for(k = 0; k < ELEMS; k++) {
+			map.erase(map.find(sequence_rev[k]));
+		}
+		gettimeofday(&end, NULL);
+		msec_map[i] = (end.tv_sec - start.tv_sec) * 1000 + (end.tv_usec - start.tv_usec) / 1000;
+
+		gettimeofday(&start, NULL);
+		for(k = 0; k < ELEMS; k++) {
 			qmap.erase(qmap.find(sequence_rev[k]));
 		}
 		gettimeofday(&end, NULL);
 		msec_qmap[i] = (end.tv_sec - start.tv_sec) * 1000 + (end.tv_usec - start.tv_usec) / 1000;
+		assert(map.size() == 0);
 		assert(qmap.size() == 0);
 		assert(btree_size(btree) == 0);
 	}
@@ -346,14 +450,17 @@ int main()
 	mkseq(ELEMS);
 	
 	bench_read();
+	map.clear();
 	qmap.clear();
 	btree_clear(btree);
 
 	bench_remove();
+	map.clear();
 	qmap.clear();
 	btree_clear(btree);
 
-	bench_write();
+	bench_insert();
+	map.clear();
 	qmap.clear();
 	btree_clear(btree);
 

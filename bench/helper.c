@@ -1,7 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-#include "mkseq.h"
+#include "helper.h"
 
 size_t *sequence_rnd;
 size_t *sequence_fwd;
@@ -37,4 +37,5 @@ void mkseq(size_t n)
 	}
 }
 
+void consume(int *dummy) {}
 

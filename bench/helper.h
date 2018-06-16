@@ -9,6 +9,7 @@ extern size_t *sequence_last;
 extern size_t *sequence_middle;
 
 void mkseq(size_t n);
+void consume(int *data);
 #ifdef __cplusplus
 }
 #endif
