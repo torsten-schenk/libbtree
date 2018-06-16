@@ -82,6 +82,22 @@ static void print_stats(const char *bench)
 	printf("\n");
 }
 
+static void print_stats_md(const char *bench)
+{
+	uint64_t min;
+	uint64_t max;
+	uint64_t avg;
+	uint64_t median;
+	printf("### %s\n", bench);
+	printf("| **item** | min | max | avg |\n");
+	printf("|----------|----:|----:|----:|\n");
+	calc_stats(msec_qmap, min, max, avg);
+	printf("| *qmap* | %llu | %llu | %llu |\n", min, max, avg);
+	calc_stats(msec_btree, min, max, avg);
+	printf("| *btree* | %llu | %llu | %llu |\n", min, max, avg);
+	printf("\n");
+}
+
 int main()
 {
 	struct timeval start;
@@ -116,7 +132,7 @@ append:
 		qmap.clear();
 	}
 
-	print_stats("append elements");
+	print_stats_md("append elements");
 
 prepend:
 	for(i = 0; i < RUNS; i++) {
@@ -139,7 +155,7 @@ prepend:
 		qmap.clear();
 	}
 
-	print_stats("prepend elements");
+	print_stats_md("prepend elements");
 
 insert:
 	for(i = 0; i < RUNS; i++) {
@@ -162,7 +178,7 @@ insert:
 		qmap.clear();
 	}
 
-	print_stats("random insert elements");
+	print_stats_md("random insert elements");
 
 access:
 	for(i = 0; i < RUNS; i++) {
@@ -184,7 +200,7 @@ access:
 		qmap.clear();
 	}
 
-	print_stats("random access");
+	print_stats_md("random access");
 
 	return 0;
 }
