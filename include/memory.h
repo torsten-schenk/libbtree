@@ -13,7 +13,8 @@ extern "C" {
 /* TODO version 2 of btree:
  * - use size_t instead of int
  * - calbacks: hand over btree_data() instead of btree_t
- * - alignment alloc */
+ * - alignment alloc
+ * - remove iterator: when removing a consecutive series of elements, improve performance and handyness with a remove iterator */
 	
 /* TODO all methods: return -1/NULL and use errno in case of error */
 
