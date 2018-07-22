@@ -1534,6 +1534,31 @@ int btree_remove_at(
 		return node_remove(self, node, pos);
 }
 
+int btree_remove_group(
+		btree_t *self,
+		const void *key,
+		void *group)
+{
+	int l = btree_find_lower_group(self, key, group, NULL);
+	int u = btree_find_upper_group(self, key, group, NULL);
+	if(l < 0 || u < 0)
+		return -1;
+	else
+		return btree_remove_range(self, l, u);
+}
+
+int btree_remove_range(
+		btree_t *self,
+		int l,
+		int u)
+{
+	while(u-- > l)
+		if(btree_remove_at(self, l) < 0)
+			return -1;
+	return 0;
+}
+
+
 int btree_find_at(
 		btree_t *self,
 		int index,

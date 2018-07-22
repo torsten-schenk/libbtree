@@ -203,6 +203,16 @@ int btree_remove_at(
 		btree_t *self,
 		int index);
 
+int btree_remove_group(
+		btree_t *self,
+		const void *key,
+		void *group);
+
+int btree_remove_range(
+		btree_t *self,
+		int l,
+		int u);
+
 int btree_size(
 		btree_t *self);
 
