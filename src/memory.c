@@ -1541,8 +1541,10 @@ int btree_remove_group(
 {
 	int l = btree_find_lower_group(self, key, group, NULL);
 	int u = btree_find_upper_group(self, key, group, NULL);
-	if(l < 0 || u < 0)
-		return -1;
+	if(l < 0)
+		return l;
+	else if(u < 0)
+		return u;
 	else
 		return btree_remove_range(self, l, u);
 }
@@ -1552,9 +1554,10 @@ int btree_remove_range(
 		int l,
 		int u)
 {
+	int ret;
 	while(u-- > l)
-		if(btree_remove_at(self, l) < 0)
-			return -1;
+		if((ret = btree_remove_at(self, l)) < 0)
+			return ret;
 	return 0;
 }
 
