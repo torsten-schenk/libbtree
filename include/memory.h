@@ -216,6 +216,11 @@ int btree_remove_range(
 int btree_size(
 		btree_t *self);
 
+int btree_size_group(
+		btree_t *self,
+		const void *key,
+		void *group);
+
 /* removes all occurences of an element from the tree.
  * returns number of elements removed */
 /*int btree_remove_all(

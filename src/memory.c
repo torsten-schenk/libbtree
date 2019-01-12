@@ -1300,6 +1300,25 @@ int btree_size(
 	return n;*/
 }
 
+int btree_size_group(
+		btree_t *self,
+		const void *key,
+		void *group)
+{
+	btree_node_t *node;
+	int pos;
+	int l;
+	int u;
+	if(self->root == NULL)
+		return 0;
+
+	find_lower(self, key, &node, &pos, group, self->hook_cmp);
+	l = to_index(node, pos);
+	find_upper(self, key, &node, &pos, group, self->hook_cmp);
+	u = to_index(node, pos);
+	return u - l;
+}
+
 int btree_swap(
 		btree_t *self,
 		int index_a,
