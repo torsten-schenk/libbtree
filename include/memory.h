@@ -251,6 +251,11 @@ void *btree_get_at(
 		btree_t *self,
 		const void *key);*/
 
+int btree_find(
+		btree_t *self,
+		const void *key,
+		btree_it_t *it);
+
 /* find functions return index or -ENOENT in case nothing was found.
  * 'it' may be NULL */
 int btree_find_at(

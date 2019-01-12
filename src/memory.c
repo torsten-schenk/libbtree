@@ -1580,6 +1580,32 @@ int btree_remove_range(
 	return 0;
 }
 
+int btree_find(
+		btree_t *self,
+		const void *key,
+		btree_it_t *it)
+{
+	btree_node_t *node;
+	int pos;
+	int index;
+
+	if(self->options & OPT_NOCMP)
+		return -EINVAL;
+
+	if(!find_lower(self, key, &node, &pos, self->group_default, self->hook_cmp))
+		return -ENOENT;
+	index = to_index(node, pos);
+	if(it != NULL) {
+		memset(it, 0, sizeof(*it));
+		it->tree = self;
+		it->pos = pos;
+		it->node = node;
+		it->element = GET_E(self, node->elements + pos * self->element_size);
+		it->index = index;
+		it->found = true;
+	}
+	return index;
+}
 
 int btree_find_at(
 		btree_t *self,
