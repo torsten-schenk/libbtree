@@ -179,7 +179,7 @@ int btree_insert(
 int btree_insert_at(
 		btree_t *self,
 		int index,
-		void *element);
+		void *element); /* can be NULL: set NULL pointer (if pointers stored) / zero memory (if values are stored) */
 
 /* insert/replace an element. same as btree_insert but replaces existing elements
  * in case of MULTI_KEY: if no element exists, a new one is inserted.
@@ -191,7 +191,7 @@ int btree_put(
 int btree_put_at(
 		btree_t *self,
 		int index,
-		void *element);
+		void *element); /* can be NULL: set NULL pointer (if pointers stored) / zero memory (if values are stored); note: cmp function must handle NULL pointers in that case! */
 
 /* removes an element from the tree.
  * in case of MULTI_KEY: remove just the FIRST one, even if multiple elements exist */

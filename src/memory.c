@@ -33,6 +33,14 @@ enum {
 #define GET_E(TREE, E) \
 	((TREE->options & OPT_USE_POINTERS) ? *(void**)(E) : (E))
 
+#define CLEAR_EP(TREE, E) \
+	do {\
+		if(TREE->options & OPT_USE_POINTERS) \
+			*(const void**)(E) = NULL; \
+		else \
+			memset(E, 0, TREE->element_size); \
+	} while(false)
+
 static void dump_tree(
 		btree_t *tree,
 		void (*print)(const void *element));
@@ -587,7 +595,10 @@ static int node_insert(
 		pos = 0;
 	}
 	if(pos == tree->order - 1) { /* put new element into overflow position */
-		SET_EP(tree, tree->overflow_element, element);
+		if(element == NULL)
+			CLEAR_EP(tree, tree->overflow_element);
+		else
+			SET_EP(tree, tree->overflow_element, element);
 		tree->overflow_node = node;
 	}
 	else {
@@ -597,7 +608,10 @@ static int node_insert(
 			node->fill--;
 		}
 		memmove(node->elements + (pos + 1) * tree->element_size, node->elements + pos * tree->element_size, (node->fill - pos) * tree->element_size);
-		SET_EP(tree, node->elements + pos * tree->element_size, element);
+		if(element == NULL)
+			CLEAR_EP(tree, node->elements + pos * tree->element_size);
+		else
+			SET_EP(tree, node->elements + pos * tree->element_size, element);
 		node->fill++;
 	}
 	if(tree->overflow_node == node)
@@ -609,7 +623,7 @@ static int node_insert(
 	ret = adjust(tree, node);
 	if(ret != 0)
 		return ret;
-	if(tree->hook_acquire != NULL)
+	if(tree->hook_acquire != NULL && element != NULL)
 		tree->hook_acquire(tree, element);
 	return 0;
 }
@@ -622,8 +636,11 @@ static int node_replace(
 {
 	if(tree->hook_release != NULL)
 		tree->hook_release(tree, GET_E(tree, node->elements + pos * tree->element_size));
-	SET_EP(tree, node->elements + pos * tree->element_size, element);
-	if(tree->hook_acquire != NULL)
+	if(element == NULL)
+		CLEAR_EP(tree, node->elements + pos * tree->element_size);
+	else
+		SET_EP(tree, node->elements + pos * tree->element_size, element);
+	if(tree->hook_acquire != NULL && element != NULL)
 		tree->hook_acquire(tree, element);
 	return 0;
 }
